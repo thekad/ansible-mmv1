@@ -315,7 +315,8 @@ func getDependency(options map[string]*Option) *Dependency {
 			for _, conflict := range option.Conflicts {
 				// normalize the conflict base name
 				parts := strings.Split(conflict, ".")
-				conflicts = append(conflicts, parts[len(parts)-1])
+				conflictName := parts[len(parts)-1]
+				conflicts = append(conflicts, google.Underscore(conflictName))
 			}
 
 			log.Debug().Msgf("option %s has conflicts with %+v", optionName, conflicts)
@@ -342,7 +343,8 @@ func getDependency(options map[string]*Option) *Dependency {
 			for _, required := range option.RequiredWith {
 				// normalize the required base name
 				parts := strings.Split(required, ".")
-				requiredWith = append(requiredWith, parts[len(parts)-1])
+				requiredName := parts[len(parts)-1]
+				requiredWith = append(requiredWith, google.Underscore(requiredName))
 			}
 
 			log.Debug().Msgf("option %s is required together with %+v", optionName, requiredWith)
