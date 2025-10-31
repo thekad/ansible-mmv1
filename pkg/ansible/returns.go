@@ -94,6 +94,8 @@ func mapMmv1TypeToReturnType(property *mmv1api.Type) (ReturnType, error) {
 		return ReturnTypeStr, nil
 	case "Fingerprint":
 		return ReturnTypeStr, nil
+	case "Time":
+		return ReturnTypeStr, nil
 	default:
 		return ReturnTypeStr, fmt.Errorf("unknown API type '%s' defaulting to string", property.Type)
 	}

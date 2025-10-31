@@ -44,7 +44,7 @@ func NewFromResource(resource *api.Resource) *Module {
 	// filter the options to only include input options
 	inputOptions := make(map[string]*Option, 0)
 	for _, option := range m.Options {
-		if option.OutputOnly() {
+		if option.Mmv1 != nil && option.Mmv1.Output {
 			continue
 		}
 		inputOptions[option.AnsibleName()] = option
@@ -105,11 +105,11 @@ func (m *Module) ProductName() string {
 	return m.Resource.Parent.Mmv1.Name
 }
 
-func (m *Module) AllMmv1BodyOptions() []*Option {
+func (m *Module) AllMmv1Options() []*Option {
 	opts := make([]*Option, 0)
 	for _, option := range sortedOptions(m.Options) {
 		// we only care about options that have an mmv1 attached to them
-		if option.Mmv1 == nil || option.Mmv1.UrlParamOnly {
+		if option.Mmv1 == nil {
 			continue
 		}
 		opts = append(opts, option)
@@ -118,20 +118,14 @@ func (m *Module) AllMmv1BodyOptions() []*Option {
 }
 
 func (m *Module) OutputOptions() []*Option {
-	return google.Reject(m.AllMmv1BodyOptions(), func(o *Option) bool {
+	return google.Reject(m.AllMmv1Options(), func(o *Option) bool {
 		return o.UrlParamOnly()
 	})
 }
 
 func (m *Module) InputOptions() []*Option {
-	return google.Reject(m.AllMmv1BodyOptions(), func(o *Option) bool {
-		return o.Output
-	})
-}
-
-func (m *Module) UrlParamOnlyOptions() []*Option {
-	return google.Select(m.AllMmv1BodyOptions(), func(o *Option) bool {
-		return o.Mmv1.UrlParamOnly
+	return google.Reject(m.AllMmv1Options(), func(o *Option) bool {
+		return o.Output || o.UrlParamOnly()
 	})
 }
 
@@ -139,7 +133,7 @@ func (m *Module) AllNestedOptions() map[string]*Option {
 	nestedOptions := make(map[string]*Option)
 
 	// Start with top-level options
-	for _, option := range m.AllMmv1BodyOptions() {
+	for _, option := range m.AllMmv1Options() {
 		collectNestedOptions(option, nestedOptions)
 	}
 

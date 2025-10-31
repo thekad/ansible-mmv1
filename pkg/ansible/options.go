@@ -65,6 +65,8 @@ func MapMmv1ToAnsible(property *mmv1api.Type) Type {
 		return TypeDict
 	case "Fingerprint":
 		return TypeStr
+	case "Time":
+		return TypeStr
 	default:
 		log.Warn().Msgf("unknown API type '%s' defaulting to string", property.Type)
 		return TypeStr
