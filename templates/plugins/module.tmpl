@@ -28,6 +28,7 @@ RETURN = r"""
 ################################################################################
 
 from ansible_collections.google.cloud.plugins.module_utils import gcp_utils as gcp
+import copy
 # BEGIN Custom imports
 {{ $.CustomCode.CustomImport -}}
 # END Custom imports
@@ -117,6 +118,39 @@ class {{ $.ModuleClass }}(gcp.Resource):
 ################################################################################
 
 
+def encode(obj):
+    """
+    The encoder is a function which take the `obj` map after it has been
+    assembled in either "Create" or "Update" and mutate it before it is sent to
+    the server
+    """
+
+    if obj is None:
+        return None
+    r = copy.deepcopy(obj)
+    # --------- BEGIN custom encoder code ---------
+    {{ $.CustomCode.Encoder | indent 4 false -}}
+    # --------- END custom encoder code ---------
+
+    return r
+
+
+def decode(obj):
+    """
+    The decoder is a function which takes the `obj` map after the read succeeds
+    and mutates it before it is returned to the module caller
+    """
+
+    if obj is None:
+        return None
+    r = copy.deepcopy(obj)
+    # --------- BEGIN custom decoder code ---------
+    {{ $.CustomCode.Decoder | indent 4 false -}}
+    # --------- END custom decoder code ---------
+
+    return r
+
+
 def main():
     """Main function"""
 
@@ -138,7 +172,7 @@ def main():
 
     params = gcp.remove_nones_from_dict(module.params)
     resource = {{ $.ModuleClass }}(params, module=module, product="{{ $.ProductName }}", kind="{{ $.Kind }}")
-    existing_obj = resource.get(build_link(module, op_configs.read.uri), allow_not_found=True)
+    existing_obj = decode(resource.get(build_link(module, op_configs.read.uri), allow_not_found=True))
 
     if existing_obj is None:
         if state == "present":
@@ -151,6 +185,7 @@ def main():
             # --------- BEGIN custom pre-create code ---------
             {{ $.CustomCode.PreCreate | indent 12 false -}}
             # --------- END custom pre-create code ---------
+            gcp.debug(module, msg="Creating resource", create_link=create_link, async_create_link=async_create_link, is_async=is_async)
             try:
                 if is_async:
                     new_obj = async_create_func(
@@ -176,6 +211,7 @@ def main():
             # --------- BEGIN custom pre-delete code ---------
             {{ $.CustomCode.PreDelete | indent 12 false -}}
             # --------- END custom pre-delete code ---------
+            gcp.debug(module, msg="Destroying resource", delete_link=delete_link, async_delete_link=async_delete_link, is_async=is_async)
             try:
                 if is_async:
                     new_obj = async_delete_func(
@@ -189,6 +225,7 @@ def main():
             except Exception as e:
                 module.fail_json(msg=str(e))
         else:
+            gcp.debug(module, existing=existing_obj, request=resource.to_request())
             if resource.diff(existing_obj):
                 is_async = op_configs.update.async_uri != ""
                 update_link = build_link(module, op_configs.update.uri)
@@ -199,6 +236,7 @@ def main():
                 # --------- BEGIN custom pre-update code ---------
                 {{ $.CustomCode.PreUpdate | indent 16 false -}}
                 # --------- END custom pre-update code ---------
+                gcp.debug(module, msg="Updating resource", update_link=update_link, async_update_link=async_update_link, is_async=is_async)
                 try:
                     if is_async:
                         new_obj = async_update_func(
@@ -210,9 +248,9 @@ def main():
                         new_obj = update_func(update_link)
                 except Exception as e:
                     module.fail_json(msg=str(e))
-                changed = resource.diff(new_obj)
+                changed = True
 
-    new_obj = resource.get(build_link(module, op_configs.read.uri), allow_not_found=True)
+    new_obj = decode(resource.get(build_link(module, op_configs.read.uri), allow_not_found=True))
     new_obj = resource.from_response(new_obj or {})
 
     new_obj.update({"changed": changed})
