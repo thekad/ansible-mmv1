@@ -1,10 +1,14 @@
 ---
-# original file: https://github.com/GoogleCloudPlatform/magic-modules/blob/main/mmv1/products/cloudbuildv2/Repository.yaml
-
-# remove tf only examples
-examples:
-  - name: cloudbuildv2_repository_ghe_doc
-    _drop: true
-  - name: cloudbuildv2_repository_github_doc
-    _drop: true
-
+base_url: '{{parent_connection}}/repositories'
+self_link: '{{parent_connection}}/repositories/{{name}}'
+create_url: '{{parent_connection}}/repositories?repositoryId={{name}}'
+custom_code:
+  encoder: |
+    # no encoder needed
+  decoder: |
+    # the name returned from the API is FQDN, but the name
+    # we send is just the "base name", convert it back to
+    # what we need but maintain the parent connection ref
+    parts = obj["name"].split("/")
+    r["parentConnection"] = "/".join(parts[:-2])
+    r["name"] = parts[-1]
