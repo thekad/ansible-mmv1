@@ -1,3 +1,6 @@
+properties:
+  - name: initialUser
+    required: true
 custom_code:
   pre_create: |
     secondary_config = module.params.get("secondary_config")
