@@ -124,7 +124,8 @@ type Option struct {
 	RequiredWith []string `yaml:"-"`
 
 	// NoLog is optional - whether this option is sensitive and should not be logged
-	NoLog bool `yaml:"-"`
+	// Uses *bool to support three states: nil (absent), false (explicitly not sensitive), true (explicitly sensitive)
+	NoLog *bool `yaml:"-"`
 
 	// Output is optional - whether this option is output-only
 	Output bool `yaml:"-"`
@@ -139,6 +140,16 @@ func (o *Option) OutputOnly() bool {
 	}
 
 	return o.Mmv1 != nil && o.Mmv1.Output
+}
+
+// HasNoLog returns true if NoLog is explicitly set (either true or false)
+func (o *Option) HasNoLog() bool {
+	return o.NoLog != nil
+}
+
+// IsNoLog returns true if NoLog is explicitly set to true
+func (o *Option) IsNoLog() bool {
+	return o.NoLog != nil && *o.NoLog
 }
 
 func (o *Option) IsOutput() bool {
@@ -242,6 +253,43 @@ func NewOptionsFromMmv1(resource *mmv1api.Resource) map[string]*Option {
 	return options
 }
 
+// looksLikeSensitiveField checks if a property name looks like it should contain sensitive data
+// based on common naming patterns for secrets, passwords, keys, tokens, etc.
+func looksLikeSensitiveField(name string) bool {
+	if name == "" {
+		return false
+	}
+
+	// Convert to lowercase for case-insensitive matching
+	lowerName := strings.ToLower(name)
+
+	// Common patterns for sensitive fields
+	sensitivePatterns := []string{
+		"password",
+		"passwd",
+		"secret",
+		"token",
+		"key",
+		"apikey",
+		"api_key",
+		"privatekey",
+		"private_key",
+		"credential",
+		"auth",
+		"authorization",
+		"certificate",
+		"cert",
+	}
+
+	for _, pattern := range sensitivePatterns {
+		if strings.Contains(lowerName, pattern) {
+			return true
+		}
+	}
+
+	return false
+}
+
 // convertPropertiesToOptions converts MMv1 properties to Ansible options
 func convertPropertiesToOptions(properties []*mmv1api.Type, parent *Option) map[string]*Option {
 	if properties == nil {
@@ -251,6 +299,20 @@ func convertPropertiesToOptions(properties []*mmv1api.Type, parent *Option) map[
 	options := map[string]*Option{}
 
 	for _, property := range properties {
+
+		// Determine NoLog value with heuristics
+		var noLog *bool
+		falseVal := false
+		trueVal := true
+		if !property.Sensitive && looksLikeSensitiveField(property.Name) {
+			// Explicitly set to false if it looks sensitive but isn't marked as such
+			noLog = &falseVal
+			log.Debug().Msgf("property %s looks sensitive but is not marked as such, explicitly setting NoLog to false", property.Name)
+		} else if property.Sensitive {
+			noLog = &trueVal
+		} else {
+			noLog = nil
+		}
 
 		// Create the option
 		option := &Option{
@@ -264,7 +326,7 @@ func convertPropertiesToOptions(properties []*mmv1api.Type, parent *Option) map[
 			Choices:      property.EnumValues,
 			Conflicts:    property.Conflicts,
 			RequiredWith: property.RequiredWith,
-			NoLog:        property.Sensitive,
+			NoLog:        noLog,
 			Output:       property.Output,
 		}
 

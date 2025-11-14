@@ -113,9 +113,13 @@ func (as *ArgumentSpec) ToString() string {
 			builder.WriteString(fmt.Sprintf("        elements=%s,\n", pythonQuote(option.Elements.String())))
 		}
 
-		// Add no_log
-		if option.NoLog {
-			builder.WriteString("        no_log=True,\n")
+		// Add no_log if explicitly set
+		if option.HasNoLog() {
+			if option.IsNoLog() {
+				builder.WriteString("        no_log=True,\n")
+			} else {
+				builder.WriteString("        no_log=False,\n")
+			}
 		}
 
 		// Add nested options
@@ -187,9 +191,13 @@ func (as *ArgumentSpec) writeNestedOptions(builder *strings.Builder, options map
 			builder.WriteString(fmt.Sprintf("%s    elements=%s,\n", indent, pythonQuote(option.Elements.String())))
 		}
 
-		// Add no_log
-		if option.NoLog {
-			builder.WriteString(fmt.Sprintf("%s    no_log=True,\n", indent))
+		// Add no_log if explicitly set
+		if option.HasNoLog() {
+			if option.IsNoLog() {
+				builder.WriteString(fmt.Sprintf("%s    no_log=True,\n", indent))
+			} else {
+				builder.WriteString(fmt.Sprintf("%s    no_log=False,\n", indent))
+			}
 		}
 
 		// Add nested options recursively
