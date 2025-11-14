@@ -10,7 +10,7 @@ import (
 	mmv1resource "github.com/GoogleCloudPlatform/magic-modules/mmv1/api/resource"
 	"github.com/GoogleCloudPlatform/magic-modules/mmv1/google"
 	"github.com/rs/zerolog/log"
-	"github.com/thekad/magic-ansible/pkg/api"
+	"github.com/thekad/ansible-mmv1/pkg/api"
 )
 
 type Module struct {

@@ -13,7 +13,7 @@ import (
 	"text/template"
 
 	"github.com/rs/zerolog/log"
-	"github.com/thekad/magic-ansible/pkg/ansible"
+	"github.com/thekad/ansible-mmv1/pkg/ansible"
 )
 
 type TemplateData struct {

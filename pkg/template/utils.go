@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/GoogleCloudPlatform/magic-modules/mmv1/google"
-	"github.com/thekad/magic-ansible/pkg/ansible"
+	"github.com/thekad/ansible-mmv1/pkg/ansible"
 )
 
 func funcMap() gotpl.FuncMap {

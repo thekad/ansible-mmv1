@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/thekad/magic-ansible/pkg/api"
+	"github.com/thekad/ansible-mmv1/pkg/api"
 )
 
 var STANDARD_MODULE_REQUIREMENTS = []string{

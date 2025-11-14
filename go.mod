@@ -1,4 +1,4 @@
-module github.com/thekad/magic-ansible
+module github.com/thekad/ansible-mmv1
 
 go 1.23.0
 

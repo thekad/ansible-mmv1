@@ -19,9 +19,9 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"github.com/thekad/magic-ansible/pkg/ansible"
-	"github.com/thekad/magic-ansible/pkg/api"
-	tpl "github.com/thekad/magic-ansible/pkg/template"
+	"github.com/thekad/ansible-mmv1/pkg/ansible"
+	"github.com/thekad/ansible-mmv1/pkg/api"
+	tpl "github.com/thekad/ansible-mmv1/pkg/template"
 )
 
 const MMV1_REPO string = "https://github.com/GoogleCloudPlatform/magic-modules"

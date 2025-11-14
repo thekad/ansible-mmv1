@@ -24,8 +24,8 @@ Magic Ansible is a code generation tool that automatically creates Ansible modul
 ### Get the Source
 
 ```bash
-git clone https://github.com/thekad/magic-ansible.git
-cd magic-ansible
+git clone https://github.com/thekad/ansible-mmv1.git
+cd ansible-mmv1
 go build .
 ```
 
@@ -179,7 +179,7 @@ go run .
 ### Building (Optional)
 
 ```bash
-go build -o magic-ansible .
+go build -o ansible-mmv1 .
 ```
 
 ## License

@@ -5,4 +5,4 @@ output/
 magic-modules/
 
 # don't add binary to git
-magic-ansible
+ansible-mmv1
