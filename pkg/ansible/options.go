@@ -130,8 +130,17 @@ type Option struct {
 	// Output is optional - whether this option is output-only
 	Output bool `yaml:"-"`
 
+	// ClientSide is optional - whether this option is client-only
+	ClientSide bool `yaml:"-"`
+
 	// Dependency is optional - dependency constraints for this option
 	Dependency *Dependency `yaml:"-"`
+
+	// SendEmptyValue is optional - if true, we will include the empty value in requests to the API
+	SendEmptyValue bool `yaml:"-"`
+
+	// AllowEmptyObject is optional - if true, empty objects are sent to / read from the API instead of ignoring them
+	AllowEmptyObject bool `yaml:"-"`
 }
 
 func (o *Option) OutputOnly() bool {
@@ -228,6 +237,15 @@ func (o *Option) ElementsAre(q string) bool {
 	return o.Mmv1.ItemType.IsA(q)
 }
 
+func (o *Option) ApiName() string {
+	if o.Mmv1 != nil {
+		if o.Mmv1.ApiName != "" {
+			return o.Mmv1.ApiName
+		}
+	}
+	return o.Name
+}
+
 // NewOptionsFromMmv1 creates a map of Ansible options from a magic-modules API Resource
 // This constructor extracts user properties from the API Resource and converts them
 // to Ansible module options following the documentation format
@@ -316,21 +334,22 @@ func convertPropertiesToOptions(properties []*mmv1api.Type, parent *Option) map[
 
 		// Create the option
 		option := &Option{
-			Name:         property.Name,
-			Mmv1:         property,
-			Parent:       parent,
-			Description:  parsePropertyDescription(property),
-			Type:         MapMmv1ToAnsible(property),
-			Required:     property.Required,
-			Default:      property.DefaultValue,
-			Choices:      property.EnumValues,
-			Conflicts:    property.Conflicts,
-			RequiredWith: property.RequiredWith,
-			NoLog:        noLog,
-			Output:       property.Output,
+			Name:             property.Name,
+			Mmv1:             property,
+			Parent:           parent,
+			Description:      parsePropertyDescription(property),
+			Type:             MapMmv1ToAnsible(property),
+			Required:         property.Required,
+			Default:          property.DefaultValue,
+			Choices:          property.EnumValues,
+			Conflicts:        property.Conflicts,
+			RequiredWith:     property.RequiredWith,
+			NoLog:            noLog,
+			Output:           property.Output,
+			ClientSide:       property.ClientSide,
+			SendEmptyValue:   property.SendEmptyValue,
+			AllowEmptyObject: property.AllowEmptyObject,
 		}
-
-		// log.Debug().Msgf("converted property %s (parent: %v, class name: %s)", property.Name, parent, option.ClassName())
 
 		// Handle list element types
 		if option.Type == TypeList && property.ItemType != nil {

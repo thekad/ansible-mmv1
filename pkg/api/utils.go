@@ -86,12 +86,6 @@ func mergeYAMLNodes(root, override *yaml.Node) {
 		return
 	}
 
-	// If node types don't match, replace root with override entirely
-	if root.Kind != override.Kind {
-		*root = *override
-		return
-	}
-
 	// Handle mapping nodes (objects)
 	if root.Kind == yaml.MappingNode && override.Kind == yaml.MappingNode {
 		mergeMappingNodes(root, override)
@@ -108,6 +102,12 @@ func mergeYAMLNodes(root, override *yaml.Node) {
 	if override.Kind == yaml.ScalarNode {
 		root.Value = override.Value
 		root.Tag = override.Tag
+	}
+
+	// If node types don't match, replace root with override entirely
+	if root.Kind != override.Kind {
+		*root = *override
+		return
 	}
 }
 

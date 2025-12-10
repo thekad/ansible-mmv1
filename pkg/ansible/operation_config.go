@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	mmv1api "github.com/GoogleCloudPlatform/magic-modules/mmv1/api"
-	"github.com/rs/zerolog/log"
 )
 
 type OperationConfig struct {
@@ -39,6 +38,11 @@ func NewOperationConfigsFromMmv1(mmv1 *mmv1api.Resource) map[string]*OperationCo
 		return strings.ReplaceAll(strings.ReplaceAll(s, "{{", "{"), "}}", "}")
 	}
 
+	ops["base_url"] = &OperationConfig{
+		UriTemplate:    escapeCurlyBraces(mmv1.BaseUrl),
+		Verb:           "GET",
+		TimeoutMinutes: 0,
+	}
 	ops["read"] = &OperationConfig{
 		UriTemplate:      escapeCurlyBraces(mmv1.SelfLinkUri()),
 		Verb:             getVerb(mmv1.ReadVerb, "read"),
@@ -70,7 +74,7 @@ func NewOperationConfigsFromMmv1(mmv1 *mmv1api.Resource) map[string]*OperationCo
 		}
 	}
 
-	log.Debug().Msgf("operation configs: %v", ops)
+	// log.Debug().Msgf("operation configs: %v", ops)
 
 	return ops
 }

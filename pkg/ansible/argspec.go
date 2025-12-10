@@ -38,6 +38,9 @@ func NewArgSpecFromOptions(options map[string]*Option, topLevelDependency *Depen
 		if option.OutputOnly() {
 			continue // Skip output-only options
 		}
+		if option.ClientSide {
+			continue // Skip client-side options
+		}
 		argSpec.Arguments[name] = option
 	}
 

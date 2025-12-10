@@ -44,8 +44,13 @@ func NewFromResource(resource *api.Resource) *Module {
 	// filter the options to only include input options
 	inputOptions := make(map[string]*Option, 0)
 	for _, option := range m.Options {
-		if option.Mmv1 != nil && option.Mmv1.Output {
-			continue
+		if option.Mmv1 != nil {
+			if option.Mmv1.Output {
+				continue
+			}
+			if option.ClientSide {
+				continue
+			}
 		}
 		inputOptions[option.AnsibleName()] = option
 	}
