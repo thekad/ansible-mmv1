@@ -54,7 +54,11 @@ class {{ $option.ClassName }}(gcp.Resource):
     {{- range $suboption := $option.InputSuboptions }}
             "{{ $suboption.ApiName }}": {{""}}
         {{- if $suboption.IsNestedObject -}}
-            {{ $suboption.ClassName }}(self.request.get("{{ $suboption.AnsibleName }}", {})).to_request(),
+            {{- if $suboption.AllowEmptyObject -}}
+            gcp.remove_nones({{ $suboption.ClassName }}(self.request.get("{{ $suboption.AnsibleName }}", {})).to_request()),  # allow empty values
+            {{- else -}}
+            gcp.remove_empties({{ $suboption.ClassName }}(self.request.get("{{ $suboption.AnsibleName }}", {})).to_request()),  # remove empty values
+            {{- end -}}
         {{- else if $suboption.IsNestedList -}}
             [{{ $suboption.ClassName }}(item).to_request() for item in (self.request.get("{{ $suboption.AnsibleName }}") or [])],
         {{- else -}}
@@ -92,8 +96,13 @@ class {{ $.ModuleClass }}(gcp.Resource):
     def _request(self):
         return {
         {{- range $option := $.InputOptions }}
-            "{{ $option.ApiName }}": {{ if $option.IsNestedObject -}}
-            {{ $option.ClassName }}(self.request.get("{{ $option.AnsibleName }}", {})).to_request(),
+            "{{ $option.ApiName }}": {{ "" }}
+            {{- if $option.IsNestedObject -}}
+            {{- if $option.AllowEmptyObject -}}
+            gcp.remove_nones({{ $option.ClassName }}(self.request.get("{{ $option.AnsibleName }}", {})).to_request()),  # allow empty values
+            {{- else -}}
+            gcp.remove_empties({{ $option.ClassName }}(self.request.get("{{ $option.AnsibleName }}", {})).to_request()),  # remove empty values
+            {{- end -}}
             {{- else if $option.IsNestedList -}}
             [{{ $option.ClassName }}(item).to_request() for item in (self.request.get("{{ $option.AnsibleName }}") or [])],
             {{- else if $option.IsList -}}
