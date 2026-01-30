@@ -29,6 +29,7 @@ RETURN = r"""
 
 from ansible_collections.google.cloud.plugins.module_utils import gcp_utils as gcp
 import copy
+import types
 # BEGIN Custom imports
 {{ $.CustomCode.CustomImport -}}
 # END Custom imports
@@ -133,36 +134,35 @@ class {{ $.ModuleClass }}(gcp.Resource):
 ################################################################################
 
 
-def encode(obj):
+def encode(self, obj):
     """
-    The encoder is a function which take the `obj` map after it has been
-    read from the module caller and mutates it before it is sent to the server
+    This is a function bound to the main resource object. Its input is the object returned from to_request()
+    and it mutates it before it is sent to the API.
     """
 
-    if obj is None:
-        return None
-    r = copy.deepcopy(obj)
+    {{- if and $.CustomCode.Encoder (not (strEq $.CustomCode.Encoder "_drop")) }}
     # --------- BEGIN custom encoder code ---------
-    {{ $.CustomCode.Encoder | indent 4 false -}}
+    {{ $.CustomCode.Encoder | indent 4 false }}
     # --------- END custom encoder code ---------
+    {{- else }}
+    return obj
+    {{- end }}
 
     return r
 
-
-def decode(obj):
+def decode(self, obj):
     """
-    The decoder is a function which takes the `obj` map after the read succeeds
-    and mutates it before it is returned to the module caller
+    This is a function bound to the main resource object. Its input is the object returned from from_response()
+    and it mutates it before it is returned to the module caller.
     """
 
-    if obj is None:
-        return None
-    r = copy.deepcopy(obj)
+    {{- if and $.CustomCode.Decoder (not (strEq $.CustomCode.Decoder "_drop")) }}
     # --------- BEGIN custom decoder code ---------
-    {{ $.CustomCode.Decoder | indent 4 false -}}
+    {{ $.CustomCode.Decoder | indent 4 false }}
     # --------- END custom decoder code ---------
-
-    return r
+    {{- else }}
+    return obj
+    {{- end }}
 
 
 def main():
@@ -184,12 +184,22 @@ def main():
     {{- end }}
     })
 
-    params = gcp.remove_nones_from_dict(module.params)
-    resource = {{ $.ModuleClass }}(params, module=module, product="{{ $.ProductName }}", kind="{{ $.Kind }}", encoder=encode, decoder=decode)
-    # --------- BEGIN custom pre-read code ---------
-    {{ $.CustomCode.PreRead | indent 4 false -}}
-    # --------- END custom pre-read code ---------
-    read_url = build_link(module, op_configs.read.uri)
+    params = gcp.remove_nones(module.params)
+    resource = {{ $.ModuleClass }}(params, module=module, product="{{ $.ProductName }}", kind="{{ $.Kind }}")
+    read_uri = op_configs.read.uri
+
+    resource._state = state  # store the state in the resource object
+    # Bind the encode and decode functions to the resource object
+    resource.encode_func = types.MethodType(encode, resource)
+    resource.decode_func = types.MethodType(decode, resource)
+
+    {{ if $.CustomCode.PreRead -}}
+    # --------- BEGIN pre-read custom code ---------
+    {{ $.CustomCode.PreRead | indent 4 false }}
+    # --------- END pre-read custom code ---------
+    {{- end }}
+
+    read_url = build_link(params, read_uri)
     existing_obj = resource.get(read_url, allow_not_found=True)
 
     if existing_obj is None:
