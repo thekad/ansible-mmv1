@@ -1,0 +1,29 @@
+# Git settings for the magic-modules repository
+# git:
+#   url: https://github.com/GoogleCloudPlatform/magic-modules
+#   dir: magic-modules
+#   rev: main
+#   pull: false
+
+# Path to override files
+# overrides: overrides
+
+# Path to template files
+# templates: templates
+
+# Overwrite existing files
+overwrite: true
+
+# Products to generate
+# Each product can optionally specify a list of resources.
+# If resources is empty or omitted, all resources for that product will be generated.
+products:
+  - name: vertexai
+    resources:
+      - Dataset
+      - Endpoint
+      - Index
+      - IndexEndpoint
+      - IndexEndpointDeployedIndex
+      - MetadataStore
+      - Featurestore
