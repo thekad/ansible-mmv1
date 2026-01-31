@@ -75,7 +75,7 @@ func init() {
 	rootCmd.Flags().StringP("log-level", "l", "info", "log level (trace, debug, info, warn, error, fatal)")
 
 	// Config file flag
-	rootCmd.Flags().StringP("config", "C", "", "path to config file (default: config.yaml in current directory)")
+	rootCmd.Flags().StringP("config", "C", "", "path to config file")
 
 	// Bind flags to viper (only for options that can come from config file)
 	viper.BindPFlag("git.url", rootCmd.Flags().Lookup("git-url"))
@@ -124,11 +124,6 @@ func initConfig() {
 	configFile, _ := rootCmd.Flags().GetString("config")
 	if configFile != "" {
 		viper.SetConfigFile(configFile)
-	} else {
-		// Look for config.yaml in current directory
-		viper.SetConfigName("config")
-		viper.SetConfigType("yaml")
-		viper.AddConfigPath(".")
 	}
 
 	// Read config file (if it exists)
