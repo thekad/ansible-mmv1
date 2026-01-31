@@ -83,7 +83,7 @@ func (m *Module) BaseUrl() string {
 	productVersions := m.Resource.Parent.Mmv1.Versions
 	for _, version := range productVersions {
 		if version.Name == m.Resource.MinVersion() {
-			return version.BaseUrl
+			return ToPythonTpl(version.BaseUrl)
 		}
 	}
 

@@ -37,7 +37,7 @@ func funcMap() gotpl.FuncMap {
 		"trim":        strings.Trim,
 		"trimSpace":   strings.TrimSpace,
 		"toJson":      tojsonFunc,
-		"toPythonTpl": toPythonTpl,
+		"toPythonTpl": ansible.ToPythonTpl,
 		// misc functions
 		"list":          listFunc, // for passing arguments to template fragments
 		"sortedKeys":    sortedKeysFunc,
@@ -184,10 +184,6 @@ func tojsonFunc(v interface{}) string {
 		return ""
 	}
 	return string(json)
-}
-
-func toPythonTpl(tpl string) string {
-	return strings.ReplaceAll(strings.ReplaceAll(tpl, "{{", "{"), "}}", "}")
 }
 
 func singularFunc(s string) string {

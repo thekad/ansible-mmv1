@@ -223,3 +223,7 @@ func sortYAMLMapKeys(node *yaml.Node) {
 		}
 	}
 }
+
+func ToPythonTpl(tpl string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(tpl, "{{", "{"), "}}", "}")
+}
