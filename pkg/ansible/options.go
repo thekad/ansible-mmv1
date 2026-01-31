@@ -133,6 +133,9 @@ type Option struct {
 	// ClientSide is optional - whether this option is client-only
 	ClientSide bool `yaml:"-"`
 
+	// Virtual is optional - whether this option is virtual
+	Virtual bool `yaml:"-"`
+
 	// Dependency is optional - dependency constraints for this option
 	Dependency *Dependency `yaml:"-"`
 
@@ -255,7 +258,11 @@ func NewOptionsFromMmv1(resource *mmv1api.Resource) map[string]*Option {
 	}
 
 	// Process all user properties from the API Resource
-	options := convertPropertiesToOptions(resource.AllUserProperties(), nil)
+	options := convertPropertiesToOptions(resource.AllUserProperties(), nil, false)
+	virtualOptions := convertPropertiesToOptions(resource.UserVirtualFields(), nil, true)
+	for name, option := range virtualOptions {
+		options[name] = option
+	}
 
 	// Always add the standard 'state' option for GCP resources
 	options["state"] = &Option{
@@ -309,7 +316,7 @@ func looksLikeSensitiveField(name string) bool {
 }
 
 // convertPropertiesToOptions converts MMv1 properties to Ansible options
-func convertPropertiesToOptions(properties []*mmv1api.Type, parent *Option) map[string]*Option {
+func convertPropertiesToOptions(properties []*mmv1api.Type, parent *Option, virtual bool) map[string]*Option {
 	if properties == nil {
 		return nil
 	}
@@ -347,6 +354,7 @@ func convertPropertiesToOptions(properties []*mmv1api.Type, parent *Option) map[
 			NoLog:            noLog,
 			Output:           property.Output,
 			ClientSide:       property.ClientSide,
+			Virtual:          virtual,
 			SendEmptyValue:   property.SendEmptyValue,
 			AllowEmptyObject: property.AllowEmptyObject,
 		}
@@ -357,13 +365,13 @@ func convertPropertiesToOptions(properties []*mmv1api.Type, parent *Option) map[
 
 			// If the list contains nested objects, create suboptions for the element type
 			if property.ItemType.Type == "NestedObject" && property.ItemType.Properties != nil {
-				option.Suboptions = convertPropertiesToOptions(property.ItemType.Properties, option)
+				option.Suboptions = convertPropertiesToOptions(property.ItemType.Properties, option, false) // virtual fields are top level only (so far)
 			}
 		}
 
 		// Handle nested dictionary objects (direct suboptions)
 		if option.Type == TypeDict && property.Properties != nil {
-			option.Suboptions = convertPropertiesToOptions(property.Properties, option)
+			option.Suboptions = convertPropertiesToOptions(property.Properties, option, false) // virtual fields are top level only (so far)
 			option.Dependency = getDependency(option.Suboptions)
 			if option.Dependency != nil {
 				log.Debug().Msgf("option %s has dependency in its suboptions: %+v", option.Name, option.Dependency)

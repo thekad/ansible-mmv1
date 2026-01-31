@@ -48,11 +48,13 @@ def build_link(module_params, uri):
 
 
 {{ range $option := $.AllNestedOptions -}}
+{{- if not $option.Virtual }}
 class {{ $option.ClassName }}(gcp.Resource):
 {{- if $option.InputSuboptions | len | gt 0 }}
     def _request(self):
         return {
     {{- range $suboption := $option.InputSuboptions }}
+        {{- if not $suboption.Virtual }}
             "{{ $suboption.ApiName }}": {{""}}
         {{- if $suboption.IsNestedObject -}}
             {{- if $suboption.AllowEmptyObject -}}
@@ -65,6 +67,7 @@ class {{ $option.ClassName }}(gcp.Resource):
         {{- else -}}
             self.request.get("{{ $suboption.AnsibleName }}"),
         {{- end }}
+        {{- end }}
     {{- end }}
         }
 {{- else if $option.SendEmptyValue }}
@@ -76,6 +79,7 @@ class {{ $option.ClassName }}(gcp.Resource):
     def _response(self):
         return {
     {{- range $suboption := $option.OutputSuboptions }}
+        {{- if not $suboption.Virtual }}
             "{{ $suboption.ApiName }}": {{""}}
         {{- if $suboption.IsNestedObject -}}
             {{ $suboption.ClassName }}().from_response(self.response.get("{{ $suboption.ApiName }}", {})),
@@ -84,6 +88,7 @@ class {{ $option.ClassName }}(gcp.Resource):
         {{- else -}}
             self.response.get("{{ $suboption.ApiName }}"),
         {{- end }}
+        {{- end }}
     {{- end }}
         }
 {{- else if or $option.SendEmptyValue $option.AllowEmptyObject }}
@@ -91,12 +96,13 @@ class {{ $option.ClassName }}(gcp.Resource):
         return self.response.get("{{ $option.AnsibleName }}", {{ $option.Type }}())
 {{- end }}
 
-
+{{- end }}
 {{ end -}}
 class {{ $.ModuleClass }}(gcp.Resource):
     def _request(self):
         return {
         {{- range $option := $.InputOptions }}
+            {{- if not $option.Virtual }}
             "{{ $option.ApiName }}": {{ "" }}
             {{- if $option.IsNestedObject -}}
             {{- if $option.AllowEmptyObject -}}
@@ -111,12 +117,14 @@ class {{ $.ModuleClass }}(gcp.Resource):
             {{- else -}}
             self.request.get("{{ $option.AnsibleName }}"),
             {{- end -}}
+            {{- end }}
         {{- end }}
         }
 
     def _response(self):
         return {
         {{- range $option := $.OutputOptions }}
+            {{- if not $option.Virtual }}
             "{{ $option.ApiName }}": {{ if $option.IsNestedObject -}}
             {{ $option.ClassName }}().from_response(self.response.get("{{ $option.ApiName }}", {})),
             {{- else if $option.IsNestedList -}}
@@ -125,6 +133,7 @@ class {{ $.ModuleClass }}(gcp.Resource):
             [{{ $option.Elements }}(item) for item in (self.response.get("{{ $option.ApiName }}") or [])],
             {{- else -}}
             self.response.get("{{ $option.ApiName }}"),
+            {{- end }}
             {{- end }}
         {{- end }}
         }
