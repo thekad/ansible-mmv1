@@ -79,6 +79,9 @@ type Dependency struct {
 
 	// RequiredTogether is optional - list of options that must be used together
 	RequiredTogether [][]string `yaml:"required_together,omitempty"`
+
+	// RequiredOneOf is optional - list of option groups where at least one option must be provided
+	RequiredOneOf [][]string `yaml:"required_one_of,omitempty"`
 }
 
 // Option represents a single option in the Ansible module documentation
@@ -122,6 +125,9 @@ type Option struct {
 
 	// RequiredWith is optional - list of options that must be used together with this option
 	RequiredWith []string `yaml:"-"`
+
+	// ExactlyOneOf is optional - list of options where exactly one must be provided
+	ExactlyOneOf []string `yaml:"-"`
 
 	// NoLog is optional - whether this option is sensitive and should not be logged
 	// Uses *bool to support three states: nil (absent), false (explicitly not sensitive), true (explicitly sensitive)
@@ -351,6 +357,7 @@ func convertPropertiesToOptions(properties []*mmv1api.Type, parent *Option, virt
 			Choices:          property.EnumValues,
 			Conflicts:        property.Conflicts,
 			RequiredWith:     property.RequiredWith,
+			ExactlyOneOf:     property.ExactlyOneOf,
 			NoLog:            noLog,
 			Output:           property.Output,
 			ClientSide:       property.ClientSide,
@@ -384,9 +391,9 @@ func convertPropertiesToOptions(properties []*mmv1api.Type, parent *Option, virt
 	return options
 }
 
-// getDependency analyzes the Conflicts and RequiredWith of each option in the map and creates
-// de-duped permutations for MutuallyExclusive and RequiredTogether. Returns a Dependency struct
-// with MutuallyExclusive and RequiredTogether filled in, or nil if no dependencies are found.
+// getDependency analyzes the Conflicts, RequiredWith, and AtLeastOneOf of each option in the map and creates
+// de-duped permutations for MutuallyExclusive, RequiredTogether, and RequiredOneOf. Returns a Dependency struct
+// with MutuallyExclusive, RequiredTogether, and RequiredOneOf filled in, or nil if no dependencies are found.
 func getDependency(options map[string]*Option) *Dependency {
 	if options == nil {
 		return nil
@@ -394,8 +401,10 @@ func getDependency(options map[string]*Option) *Dependency {
 
 	var mutuallyExclusive [][]string
 	var requiredTogether [][]string
+	var requiredOneOf [][]string
 	seenMutual := make(map[string]bool)
 	seenRequired := make(map[string]bool)
+	seenOneOf := make(map[string]bool)
 
 	for optionName, option := range options {
 		// Handle Conflicts -> MutuallyExclusive
@@ -453,9 +462,42 @@ func getDependency(options map[string]*Option) *Dependency {
 				requiredTogether = append(requiredTogether, requiredGroup)
 			}
 		}
+
+		// Handle ExactlyOneOf -> RequiredOneOf + MutuallyExclusive
+		// "Exactly one of" means both "at least one required" AND "no more than one allowed"
+		// Note: ExactlyOneOf already includes the current option in the list, unlike Conflicts/RequiredWith
+		if len(option.ExactlyOneOf) > 0 {
+			exactlyOneOf := make([]string, 0, len(option.ExactlyOneOf))
+			for _, oneOf := range option.ExactlyOneOf {
+				// normalize the option base name
+				parts := strings.Split(oneOf, ".")
+				oneOfName := parts[len(parts)-1]
+				exactlyOneOf = append(exactlyOneOf, google.Underscore(oneOfName))
+			}
+
+			log.Debug().Msgf("option %s requires exactly one of %+v", optionName, exactlyOneOf)
+
+			// Sort the group to ensure consistent ordering for deduplication
+			sort.Strings(exactlyOneOf)
+
+			// Create a key for deduplication
+			key := strings.Join(exactlyOneOf, ",")
+
+			// Add to RequiredOneOf (at least one must be provided)
+			if !seenOneOf[key] {
+				seenOneOf[key] = true
+				requiredOneOf = append(requiredOneOf, exactlyOneOf)
+			}
+
+			// Add to MutuallyExclusive (no more than one can be provided)
+			if !seenMutual[key] {
+				seenMutual[key] = true
+				mutuallyExclusive = append(mutuallyExclusive, exactlyOneOf)
+			}
+		}
 	}
 
-	if len(mutuallyExclusive) == 0 && len(requiredTogether) == 0 {
+	if len(mutuallyExclusive) == 0 && len(requiredTogether) == 0 && len(requiredOneOf) == 0 {
 		return nil
 	}
 
@@ -465,6 +507,9 @@ func getDependency(options map[string]*Option) *Dependency {
 	}
 	if len(requiredTogether) > 0 {
 		dependency.RequiredTogether = requiredTogether
+	}
+	if len(requiredOneOf) > 0 {
+		dependency.RequiredOneOf = requiredOneOf
 	}
 
 	return dependency

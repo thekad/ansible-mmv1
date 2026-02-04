@@ -232,6 +232,9 @@ func (as *ArgumentSpec) writeArgumentConstraints(builder *strings.Builder, optio
 		if len(option.Dependency.RequiredTogether) > 0 {
 			builder.WriteString(fmt.Sprintf("%srequired_together=%s,\n", indent, pythonListOfLists(option.Dependency.RequiredTogether)))
 		}
+		if len(option.Dependency.RequiredOneOf) > 0 {
+			builder.WriteString(fmt.Sprintf("%srequired_one_of=%s,\n", indent, pythonListOfLists(option.Dependency.RequiredOneOf)))
+		}
 	}
 }
 
@@ -247,6 +250,9 @@ func (as *ArgumentSpec) buildModuleConstraints() string {
 	}
 	if len(as.Dependencies.RequiredTogether) > 0 {
 		constraints = append(constraints, fmt.Sprintf("required_together=%s", pythonListOfLists(as.Dependencies.RequiredTogether)))
+	}
+	if len(as.Dependencies.RequiredOneOf) > 0 {
+		constraints = append(constraints, fmt.Sprintf("required_one_of=%s", pythonListOfLists(as.Dependencies.RequiredOneOf)))
 	}
 	if len(constraints) == 0 {
 		return ""
