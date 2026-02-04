@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	mmv1api "github.com/GoogleCloudPlatform/magic-modules/mmv1/api"
@@ -15,6 +16,12 @@ import (
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v3"
 )
+
+// blockScalarIndentRegex fixes yaml.v3 output that uses explicit indentation
+// indicators (like |4- or >2) which cause issues when re-unmarshaling.
+// This replaces patterns like "|4-" with "|-" and "|4" with "|".
+var blockScalarIndentRegex = regexp.MustCompile(`([|>])(\d+)([-+]?)(\s*\n)`)
+
 
 // Configurable is generic interface for both Product and Resource
 type Configurable interface {
@@ -64,9 +71,14 @@ func (p *Product) Unmarshal() error {
 		return fmt.Errorf("error marshaling patched data: %v", err)
 	}
 
-	// load main product file
-	yamlValidator := google.YamlValidator{}
-	yamlValidator.Parse(patchedData, p.Mmv1, p.File)
+	// Fix yaml.v3 output that uses explicit indentation indicators (e.g., |4-)
+	// which cause issues when re-unmarshaling with custom UnmarshalYAML methods.
+	patchedData = blockScalarIndentRegex.ReplaceAll(patchedData, []byte("$1$3$4"))
+
+	// unmarshal directly with yaml.v3 (bypasses google.YamlValidator which uses yaml.v2)
+	if err := yaml.Unmarshal(patchedData, p.Mmv1); err != nil {
+		return fmt.Errorf("cannot unmarshal product data from file %s: %v", p.File, err)
+	}
 
 	return nil
 }
@@ -131,9 +143,14 @@ func (r *Resource) Unmarshal() error {
 		return fmt.Errorf("error marshaling patched data: %v", err)
 	}
 
-	// finally load into the actual resource struct and unmarshal
-	yamlValidator := google.YamlValidator{}
-	yamlValidator.Parse(patchedData, r.Mmv1, r.File)
+	// Fix yaml.v3 output that uses explicit indentation indicators (e.g., |4-)
+	// which cause issues when re-unmarshaling with custom UnmarshalYAML methods.
+	patchedData = blockScalarIndentRegex.ReplaceAll(patchedData, []byte("$1$3$4"))
+
+	// unmarshal directly with yaml.v3 (bypasses google.YamlValidator which uses yaml.v2)
+	if err := yaml.Unmarshal(patchedData, r.Mmv1); err != nil {
+		return fmt.Errorf("cannot unmarshal resource data from file %s: %v", r.File, err)
+	}
 
 	return nil
 }
@@ -178,6 +195,7 @@ func (r *Resource) patchExamples(rootNode *yaml.Node) {
 
 	// Iterate over each item in the examples list.
 	for _, exampleMapNode := range examplesNode.Content {
+		log.Debug().Msgf("example map node: %v", exampleMapNode)
 		var name string
 		var valueToSet string
 
