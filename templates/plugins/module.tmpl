@@ -187,6 +187,10 @@ def main():
     state = module.params["state"]
     changed = False
 
+    {{- if $.ExcludeDelete }}
+    if state == "absent":
+        module.fail_json(msg="The API for this resource does not support deletion")
+    {{- end }}
     op_configs = gcp.ResourceOpConfigs({
     {{- range $op, $config := $.OperationConfigs }}
         "{{ $op }}": gcp.ResourceOpConfig(**{{ $config | toJson }}),
@@ -374,7 +378,7 @@ def main():
                 new_obj = existing_obj
 
     new_obj.update({"changed": changed})
-        module.exit_json(**new_obj)
+    module.exit_json(**new_obj)
 
 
 if __name__ == "__main__":

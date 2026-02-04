@@ -68,6 +68,10 @@ func (m *Module) String() string {
 	return m.Resource.AnsibleName()
 }
 
+func (m *Module) ExcludeDelete() bool {
+	return m.Resource.Mmv1.ExcludeDelete
+}
+
 // CustomCode returns the custom code (if any) defined in the API Resource YAML file
 func (m *Module) CustomCode() mmv1resource.CustomCode {
 	return m.Resource.Mmv1.CustomCode
