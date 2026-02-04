@@ -29,9 +29,11 @@ RETURN = r"""
 
 from ansible_collections.google.cloud.plugins.module_utils import gcp_utils as gcp
 import types
+{{ if and $.CustomCode (not (strEq $.CustomCode.CustomImport "_drop")) -}}
 # BEGIN Custom imports
 {{ $.CustomCode.CustomImport }}
 # END Custom imports
+{{- end }}
 
 def build_link(module_params, uri):
     params = module_params.copy()
@@ -257,11 +259,13 @@ def main():
                     )
                 else:
                     new_obj = create_func(create_link)
+                gcp.debug(module, new=new_obj, action="create", post=False)
                 {{- if and $.CustomCode.PostCreate (not (strEq $.CustomCode.PostCreate "_drop")) }}
                 # --------- BEGIN post-create custom code ---------
                 {{ $.CustomCode.PostCreate | indent 16 false }}
                 # --------- END post-create custom code ---------
                 {{- end }}
+                gcp.debug(module, new=new_obj, action="create", post=True)
                 # --------- END create code ---------
             {{- end }}
             except Exception as e:
@@ -353,21 +357,24 @@ def main():
                         )
                     else:
                         new_obj = update_func(update_link)
+                    gcp.debug(module, new=new_obj, action="update", post=False)
                     {{- if and $.CustomCode.PostUpdate (not (strEq $.CustomCode.PostUpdate "_drop")) }}
                     # --------- BEGIN post-update custom code ---------
                     {{ $.CustomCode.PostUpdate | indent 20 false }}
                     # --------- END post-update custom code ---------
-                    {{ end -}}
+                    {{- end }}
+                    gcp.debug(module, new=new_obj, action="update", post=True)
                     # --------- END update code ---------
                 {{- end }}
                 except Exception as e:
                     module.fail_json(msg=str(e))
 
                 changed = True
+            else:
+                new_obj = existing_obj
 
     new_obj.update({"changed": changed})
-    gcp.debug(module, new=new_obj)
-    module.exit_json(**new_obj)
+        module.exit_json(**new_obj)
 
 
 if __name__ == "__main__":
