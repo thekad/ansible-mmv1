@@ -200,6 +200,8 @@ def main():
     resource.encode_func = types.MethodType(encode, resource)
     resource.decode_func = types.MethodType(decode, resource)
 
+    custom_diff = None  # Set this variable if you want to implement custom diff logic
+
     {{ if $.CustomCode.PreRead -}}
     # --------- BEGIN pre-read custom code ---------
     {{ $.CustomCode.PreRead | indent 4 false }}
@@ -217,7 +219,11 @@ def main():
     # --------- END post-read custom code ---------
     {{- end }}
 
-    gcp.debug(module, existing=existing_obj, post=True)
+    if custom_diff is not None:
+        is_different = custom_diff
+    else:
+        is_different = resource.diff(gcp.remove_empties(existing_obj))
+    gcp.debug(module, existing=existing_obj, post=True, is_different=is_different)
 
     if gcp.empty(existing_obj):
         if state == "present":
@@ -317,7 +323,7 @@ def main():
 
             changed = True
         else:
-            if resource.diff(existing_obj):
+            if is_different:
                 update_uri = op_configs.update.uri
                 update_async_uri = op_configs.update.async_uri
                 try:
