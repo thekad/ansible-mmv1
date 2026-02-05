@@ -215,7 +215,7 @@ def main():
     {{- end }}
 
     read_url = build_link(params, read_uri)
-    existing_obj = resource.get(read_url, allow_not_found=True)
+    existing_obj = resource.get(read_url, allow_not_found=True) or {}
     new_obj = {}
     gcp.debug(module, existing=existing_obj, post=False)
 
@@ -229,7 +229,7 @@ def main():
         is_different = custom_diff
     else:
         is_different = resource.diff(gcp.remove_empties(existing_obj))
-    gcp.debug(module, existing=existing_obj, post=True, is_different=is_different)
+    gcp.debug(module, request=gcp.remove_empties(resource.to_request()), existing=existing_obj, post=True, is_different=is_different)
 
     if gcp.empty(existing_obj):
         if state == "present":
