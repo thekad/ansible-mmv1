@@ -22,5 +22,5 @@ custom_code:
     # if this comes from a registered variable, strip down to base name
     params["name"] = params["name"].split("/")[-1]
   pre_delete: |
-    if params["force_destroy"] == True:
+    if params.get("force_destroy"):
         delete_uri += "?force=true"
