@@ -81,7 +81,7 @@ func ToYAML(data interface{}) string {
 	}
 
 	// Walk the node tree and set folded style for description fields
-	setFoldedStyleForDescriptions(node)
+	// setFoldedStyleForDescriptions(node)
 
 	// Sort all map keys for consistent output
 	sortYAMLMapKeys(node)
