@@ -1,0 +1,34 @@
+---
+examples:
+  - name: vertex_ai_reasoning_engine_basic
+    exclude_test: true
+    exclude_docs: false
+  - name: vertex_ai_reasoning_engine_source_based_deployment
+    exclude_test: true
+    exclude_docs: false
+  - name: vertex_ai_reasoning_engine_psc_interface
+    _drop: true
+  - name: vertex_ai_reasoning_engine_full
+    exclude_docs: true
+custom_code:
+  pre_read: |
+    # for this module, we're hitting the list endpoint and filtering on display name
+    read_uri = f"{op_configs.base_url.uri}?filter=displayName={params.get("display_name")}"
+
+  post_read: |
+    if not gcp.empty(existing_obj):
+        for rengine in existing_obj.get("reasoningEngines", []):
+            if rengine.get("displayName") == params.get("display_name"):
+                existing_obj = rengine
+                break
+
+  pre_update: |
+    # need to set to the required parameter "name" to the existing resource name
+    params["name"] = existing_obj["name"].split("/")[-1]
+
+    # finally, need to build the updateMask for the fields in our module
+    update_uri += f"?updateMask={','.join(resource.dot_fields())}"
+
+  pre_delete: |
+    # need to set to the required parameter "name" to the existing resource name
+    params["name"] = existing_obj["name"].split("/")[-1]

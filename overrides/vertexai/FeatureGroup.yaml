@@ -1,0 +1,14 @@
+---
+examples:
+  - name: 'vertex_ai_feature_group'
+    exclude_test: true
+  - name: 'vertex_ai_feature_group_test'
+    exclude_docs: true
+custom_code:
+  custom_import: |
+    import copy
+  decoder: |
+    r = copy.deepcopy(obj)
+    if "name" in r:
+        r["name"] = r.pop("name").split("/")[-1]
+    return r

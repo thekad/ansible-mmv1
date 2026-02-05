@@ -1,0 +1,149 @@
+---
+examples:
+  - name: vertex_ai_deploy_psc_endpoint_automated
+    _drop: true
+  - name: vertex_ai_deploy_with_configs
+    _drop: true
+  - name: vertex_ai_deploy_multiple_models_in_parallel
+    _drop: true
+  - name: vertex_ai_deploy_multiple_models_in_sequence
+    _drop: true
+  - name: vertex_ai_deploy_test
+    exclude_docs: true
+
+virtual_fields:
+  - name: display_name
+    type: String
+    description: |-
+      The user-specified display name.
+      This will be the default display name for both the endpoint and the
+      deployed model.
+    required: true
+
+custom_code:
+  pre_read: |
+    # region and location are the same
+    params["region"] = params["location"]
+
+    # need to strip the last part of the read_uri to hit the list endpoint with a filter
+    read_uri = "/".join(read_uri.split("/")[:-1])
+
+    display_name = params["display_name"]
+    endpoint_display_name = params.get("endpoint_config", {}).get("endpoint_display_name") or display_name
+    model_display_name = params.get("model_config", {}).get("model_display_name") or display_name
+
+    # filter by the endpoint display name
+    read_uri += f"?filter=displayName={endpoint_display_name}"
+
+    def publisher_model_to_deployed_model(region, path: str) -> str:
+        pattern = r"^publishers/(?P<publisher>[^/]+)/models/(?P<model>[^@/]+)(?:@(?P<version>.+))?$"
+        match = re.match(pattern, path)
+        if match:
+            data = match.groupdict()
+            data["region"] = region
+            if data.get("version") is None:
+                data["version"] = "001"
+            for key, value in data.items():
+                data[key] = re.sub(r"[^a-zA-Z0-9]", "-", value.lower())
+            return "locations/{region}/models/{publisher}-{model}-{version}".format(**data)
+
+        return None
+
+  custom_import: |
+    import copy
+    import json
+    import re
+
+  post_read: |
+    outgoing = resource.to_request()
+
+    # if there are existing endpoints, the call would have returned a list
+    if not gcp.empty(existing_obj):
+        for endpoint in existing_obj.get("endpoints", []):
+            if endpoint.get("displayName") == endpoint_display_name:  # filtering should take care of this, but just in case
+                existing_obj = endpoint
+                existing_obj["endpointDisplayName"] = endpoint.pop("displayName")
+                existing_obj["endpoint"] = endpoint.get("name")
+                existing_obj["name"] = endpoint.get("endpoint").split("/")[-1]
+                break
+
+        for deployed_model in existing_obj.get("deployedModels", []):
+            if deployed_model.get("displayName") == model_display_name:
+                existing_obj["deployedModelDisplayName"] = deployed_model.pop("displayName")
+                existing_obj["deployedModelId"] = deployed_model.get("id")
+                existing_obj["deployedModel"] = deployed_model
+                break
+        else:
+            existing_obj["deployedModel"] = {}
+
+        existing_obj.pop("deployedModels", [])
+
+        if existing_obj["deployedModel"]:
+            # finally, update the params to build the url
+            params["endpoint"] = existing_obj["name"]
+
+            gcp.debug(module, publisher_model_name=params.get("publisher_model_name"), hugging_face_model_id=params.get("hugging_face_model_id"))
+            model_to_deploy = params.get("publisher_model_name")  # read publisher model name first
+            if model_to_deploy is None:  # if not provided, use the hugging face model id
+                model_to_deploy = params.get("hugging_face_model_id")
+                hfParts = model_to_deploy.split("/")
+                model_to_deploy = f"publishers/hf-{hfParts[0]}/models/{hfParts[1]}@001"  # put HF model into publisher model format
+
+            model_to_deploy = publisher_model_to_deployed_model(params["region"], model_to_deploy)  # convert the model id to the deployed model id
+            existing_model = existing_obj["deployedModel"].get("model", "")
+            # requested model's final name is a substring of the actual deployed model
+            gcp.debug(module, model_to_deploy=model_to_deploy, existing_model=existing_model)
+            if model_to_deploy in existing_model:  # our outgoing model is a substring the existing model
+                custom_diff = False  # deploy model is the same, mark as such
+            else:
+                custom_diff = True  # deploy model changed, mark as such
+        else:
+            pass
+            # module.fail_json(msg="The endpoint exists but the deployed model does not, delete the endpoint and try again")
+
+  pre_create: |
+    if not params.get("endpoint_config"):
+      params["endpoint_config"] = {}
+    if not params["endpoint_config"].get("endpoint_display_name"):
+      params["endpoint_config"]["endpoint_display_name"] = params["display_name"]
+
+    if not params.get("model_config"):
+      params["model_config"] = {}
+    if not params["model_config"].get("model_display_name"):
+      params["model_config"]["model_display_name"] = params["display_name"]
+
+  post_create: |
+    new_obj["name"] = new_obj.pop("endpoint")
+
+  pre_update: |
+    module.fail_json(msg="Updating an endpoint with model garden deployment is not supported")
+
+  custom_delete: _drop
+
+  pre_delete: |
+    params = copy.deepcopy(module.params)
+    params["region"] = params["location"]
+    params["endpoint"] = existing_obj["name"]
+
+    # First, undeploy the model (if any)
+    deployed_model_id = existing_obj.get("deployedModelId")
+    # module.exit_json(msg="Deployed model ID: " + deployed_model_id)
+    if deployed_model_id:
+        undeploy_url = build_link(params, f"{op_configs.delete.uri}:undeployModel")
+        undeploy_body = {
+            "deployedModelId": deployed_model_id
+        }
+        gcp.debug(module, undeploy_url=undeploy_url, undeploy_body=undeploy_body)
+        # perform an async post to undeploy
+        undeploy_response = resource.session().post(undeploy_url, undeploy_body)
+        try:
+            module.raise_for_status(undeploy_response)
+            undeploy_async_result = undeploy_response.json()
+        except getattr(json.decoder, "JSONDecodeError", ValueError):
+            module.fail_json(
+                msg=f"Invalid JSON response with error: {undeploy_response.text}"
+            )
+        params["op_id"] = undeploy_async_result.get("name")
+        async_undeploy_op_link = build_link(params, "{op_id}")
+        gcp.debug(module, params=params, async_undeploy_op_link=async_undeploy_op_link)
+        resource.wait_for_op(async_undeploy_op_link, retries=op_configs.delete.timeout)

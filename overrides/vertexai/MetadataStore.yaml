@@ -1,0 +1,7 @@
+examples:
+  - name: vertex_ai_metadata_store_test
+    exclude_docs: true
+
+custom_code:
+  pre_update: |
+    module.fail_json(msg="Metadata stores API does not support updates")

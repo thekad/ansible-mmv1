@@ -1,0 +1,23 @@
+---
+self_link: projects/{project}/locations/{region}/tensorboards/{name}
+examples:
+  - name: vertex_ai_tensorboard
+    exclude_test: true
+  - name: vertex_ai_tensorboard_full
+    exclude_docs: true
+
+custom_code:
+  custom_import: _drop
+
+  pre_read: |
+    # for this module, we're hitting the list endpoint and filtering on display name
+    read_uri = f"{op_configs.base_url.uri}?filter=displayName={params.get("display_name")}"
+
+  post_read: |
+    # if there are existing tensorboards, the call would have returned a list
+    if not gcp.empty(existing_obj):
+        for tb in existing_obj.get("tensorboards", []):
+            if tb.get("displayName") == params.get("display_name"):
+                existing_obj = tb
+                break
+        params["name"] = existing_obj["name"].split("/")[-1]

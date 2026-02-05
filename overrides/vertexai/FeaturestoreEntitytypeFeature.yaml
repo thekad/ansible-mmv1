@@ -1,0 +1,34 @@
+---
+examples:
+  - name: 'vertex_ai_featurestore_entitytype_feature_with_beta_fields'
+    _drop: true
+  - name: 'vertex_ai_featurestore_entitytype_feature'
+    exclude_test: true
+  - name: 'vertex_ai_featurestore_entitytype_feature_test'
+    exclude_docs: true
+properties:
+  - name: 'name'
+    type: String
+    description:
+      The name of the feature. The feature can be up to 64 characters long and
+      can consist only of ASCII Latin letters A-Z and a-z, underscore(_), and
+      ASCII digits 0-9 starting with a letter. The value will be unique given an
+      entity type.
+    url_param_only: true
+    immutable: true
+    required: true
+custom_code:
+  custom_import: |
+    import re
+  pre_read: |
+    # if this comes from a registered variable, strip down to base name
+    params["name"] = params["name"].split("/")[-1]
+
+    # extract region from entitytype
+    pattern = r"projects/(.+)/locations/(.+)/featurestores/(.+)/entityTypes/(.+)"
+    match = re.search(pattern, str(params["entitytype"]))
+    if match:
+        params["region"] = match.group(2)
+  pre_create: _drop
+  pre_delete: _drop
+  encoder: _drop

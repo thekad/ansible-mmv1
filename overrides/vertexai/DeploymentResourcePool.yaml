@@ -1,0 +1,34 @@
+---
+update_verb: PATCH
+examples:
+  - name: vertex_ai_deployment_resource_pool
+    exclude_test: true
+  - name: vertex_ai_deployment_resource_pool_test
+    exclude_docs: true
+custom_code:
+  custom_import: |
+    import copy
+  pre_create: |
+    resource._action = "create"
+  pre_update: |
+    resource._action = "update"
+    update_uri += "?updateMask=" + ",".join(resource.dot_fields())
+  pre_delete: |
+    resource._action = "delete"
+  encoder: |
+    self.debug(func="encoder", obj=obj)
+    action = getattr(self, "_action", "read")
+    r = {}
+    if action == "create":
+        r = {
+          "deploymentResourcePool": copy.deepcopy(obj),
+          "deploymentResourcePoolId": f"{obj["name"]}",
+        }
+    elif action == "read":
+        r = copy.deepcopy(obj)
+    elif action == "update":
+        r = copy.deepcopy(obj)
+    else:
+        pass
+
+    return r

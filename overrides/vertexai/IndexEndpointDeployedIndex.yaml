@@ -1,0 +1,81 @@
+---
+parameters:
+  - name: 'region'
+    type: String
+    description: The region of the index. eg us-central1
+    required: true
+    url_param_only: true
+    immutable: true
+examples:
+  - name: vertex_ai_index_endpoint_deployed_index_basic_two
+    _drop: true
+  - name: vertex_ai_index_endpoint_deployed_index_basic
+    exclude_test: true
+  - name: vertex_ai_index_endpoint_deployed_index_automatic_resources
+    exclude_test: true
+    exclude_docs: false
+  - name: vertex_ai_index_endpoint_deployed_index_dedicated_resources
+    exclude_test: true
+    exclude_docs: false
+  - name: vertex_ai_index_endpoint_deployed_index_test
+    exclude_test: false
+    exclude_docs: true
+custom_code:
+  custom_import: |
+    import copy
+  pre_create: |
+    resource._action = "create"
+  pre_update: |
+    resource._action = "update"
+  pre_delete: |
+    resource._action = "delete"
+  encoder: |
+    r = {}
+    action = getattr(self, "_action", "read")
+    self.debug(func="encoder", action=action, obj=obj)
+    if action == "read":  # for read, we just return the original object
+      r = copy.deepcopy(obj)
+    elif action == "create":  # encode for create
+      # deployIndex requires the deployedIndex in a nested object
+      # https://docs.cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.indexEndpoints/deployIndex#request-body
+      t = copy.deepcopy(obj)
+      t["id"] = t.pop("deployedIndexId")
+      r = {
+          "deployedIndex": t
+      }
+    elif action == "update":  # encode for update
+      # mutateDeployedIndex requires the deployedIndex definition at top-level
+      # https://docs.cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.indexEndpoints/mutateDeployedIndex#request-body
+      r = copy.deepcopy(obj)
+      r["id"] = r.pop("deployedIndexId")
+    else:  # encode for delete
+      # normally, deletes are empty but undeployIndex requires a single parameter, the deployedIndexId
+      # https://docs.cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.indexEndpoints/undeployIndex#request-body
+      r = {
+        "deployedIndexId": self._request().get("deployedIndexId")
+      }
+
+    return r
+  decoder: |
+    r = copy.deepcopy(obj)
+    deployed_index = r.pop("deployedIndex", None)
+    if deployed_index is not None:
+      r["deployedIndexId"] = deployed_index.pop("id", None)
+    elif r.get("id") is not None:
+      r["deployedIndexId"] = r.pop("id")
+    else:
+      pass
+    return r
+  pre_read: |
+    resource._action = "read"
+  post_read: |
+    # We need an existing index endpoint to work with
+    if gcp.empty(existing_obj):
+        module.fail_json(msg="The referenced index endpoint was not found")
+    else:
+        for didx in existing_obj.get("deployedIndexes", []):
+            if didx.get("id") == params.get("deployed_index_id"):
+                existing_obj = didx
+                break
+        else:  # deployedIndexes was empty or no match found
+            existing_obj = {}

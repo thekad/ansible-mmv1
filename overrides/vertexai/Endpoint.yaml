@@ -1,0 +1,8 @@
+---
+examples:
+  - name: 'vertex_ai_endpoint_private_service_connect'
+    _drop: true
+  - name: 'vertex_ai_endpoint_dedicated_endpoint'
+    _drop: true
+  - name: 'vertex_ai_endpoint_network_test'
+    exclude_docs: true

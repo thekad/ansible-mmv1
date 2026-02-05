@@ -1,0 +1,12 @@
+---
+examples:
+  - name: 'vertex_ai_featureonlinestore_featureview_cross_project'
+    _drop: true
+  - name: 'vertex_ai_featureonlinestore_featureview_with_vector_search'
+    _drop: true
+  - name: 'vertex_ai_featureonlinestore_featureview_feature_registry'
+    _drop: true
+  - name: 'vertex_ai_featureonlinestore_featureview'
+    exclude_test: true
+  - name: 'vertex_ai_featureonlinestore_featureview_test'
+    exclude_docs: true
