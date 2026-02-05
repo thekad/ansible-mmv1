@@ -5,6 +5,7 @@ package ansible
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/thekad/ansible-mmv1/pkg/api"
@@ -54,6 +55,7 @@ func NewDocumentationFromOptions(resource *api.Resource, options map[string]*Opt
 	docFragments := []string{
 		"google.cloud.gcp",
 	}
+	sort.Strings(resourceNotes)
 	authors := []string{"Google Inc. (@googlecloudplatform)"}
 	return &Documentation{
 		Module:           resource.AnsibleName(),
