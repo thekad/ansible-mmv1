@@ -1,9 +1,9 @@
 # Git settings for the magic-modules repository
-# git:
-#   url: https://github.com/GoogleCloudPlatform/magic-modules
-#   dir: magic-modules
-#   rev: main
-#   pull: false
+git:
+  url: https://github.com/GoogleCloudPlatform/magic-modules
+  dir: magic-modules
+  rev: main
+  pull: false
 
 # Path to override files
 # overrides: overrides
@@ -21,9 +21,20 @@ products:
   - name: vertexai
     resources:
       - Dataset
+      - DeploymentResourcePool
       - Endpoint
+      - EndpointWithModelGardenDeployment
+      - FeatureGroup
+      - FeatureGroupFeature
+      - FeatureOnlineStore
+      - FeatureOnlineStoreFeatureview
+      - Featurestore
+      - FeaturestoreEntitytype
+      - FeaturestoreEntitytypeFeature
       - Index
       - IndexEndpoint
       - IndexEndpointDeployedIndex
       - MetadataStore
-      - Featurestore
+      - RagEngineConfig
+      - ReasoningEngine
+      - Tensorboard
