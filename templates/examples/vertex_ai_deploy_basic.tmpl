@@ -1,7 +1,7 @@
 - name: Deploy Basic Model
   google.cloud.gcp_vertexai_endpoint_with_model_garden_deployment:
     state: present
-    publisher_model_name = publishers/google/models/paligemma@paligemma-224-float32
+    publisher_model_name: publishers/google/models/paligemma@paligemma-224-float32
     endpoint_config:
       endpoint_display_name: my-endpoint
     model_config:
