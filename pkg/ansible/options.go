@@ -503,16 +503,30 @@ func getDependency(options map[string]*Option) *Dependency {
 
 	dependency := &Dependency{}
 	if len(mutuallyExclusive) > 0 {
+		// Sort for stable output
+		sortStringSlices(mutuallyExclusive)
 		dependency.MutuallyExclusive = mutuallyExclusive
 	}
 	if len(requiredTogether) > 0 {
+		// Sort for stable output
+		sortStringSlices(requiredTogether)
 		dependency.RequiredTogether = requiredTogether
 	}
 	if len(requiredOneOf) > 0 {
+		// Sort for stable output
+		sortStringSlices(requiredOneOf)
 		dependency.RequiredOneOf = requiredOneOf
 	}
 
 	return dependency
+}
+
+// sortStringSlices sorts a slice of string slices for stable, deterministic output.
+// Sorting is done by comparing the joined strings of each inner slice.
+func sortStringSlices(slices [][]string) {
+	sort.Slice(slices, func(i, j int) bool {
+		return strings.Join(slices[i], ",") < strings.Join(slices[j], ",")
+	})
 }
 
 func sortedOptions(m map[string]*Option) []*Option {
