@@ -1,7 +1,7 @@
 custom_code:
   pre_read: |
     # for this module, we're hitting the list endpoint and filtering on display name
-    read_uri = f"{op_configs.base_url.uri}?filter=displayName={params.get("display_name")}"
+    read_uri = f"{op_configs.base_url.uri}?filter=displayName={params.get('display_name')}"
   post_read: |
     # if there are existing datasets, the call would have returned a list
     if not gcp.empty(existing_obj):
@@ -14,7 +14,7 @@ custom_code:
     params["name"] = existing_obj["name"]
 
     # need to build the updateMask for the fields in our module
-    update_uri += f"?updateMask=labels,{','.join(resource.dot_fields())}"
+    update_uri += "?updateMask=labels," + ','.join(resource.dot_fields())
   pre_delete: |
     # need to set to the required parameter "name" to the existing resource name
     params["name"] = existing_obj["name"]
