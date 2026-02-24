@@ -33,11 +33,11 @@ properties:
     required: false
 custom_code:
   encoder: |
-    tier = f"{obj["ragManagedDbConfig"]}"
+    tier = obj.get("ragManagedDbConfig")
     if getattr(self, "_state", "present") == "absent":
         tier = "unprovisioned"
     return {
-        "name": f"projects/{self.module.params["project"]}/locations/{self.module.params["region"]}/ragEngineConfig",
+        "name": "projects/{project}/locations/{region}/ragEngineConfig".format(**self.module.params),
         "ragManagedDbConfig": {
             tier.lower(): {}
         }
@@ -46,7 +46,7 @@ custom_code:
   decoder: |
     tier = next(iter(obj["ragManagedDbConfig"]))
     return {
-        "name": f"{obj["name"]}",
+        "name": obj.get("name"),
         "ragManagedDbConfig": {
             tier.lower(): {}
         }

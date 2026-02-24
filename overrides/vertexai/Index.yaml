@@ -2,7 +2,7 @@ custom_code:
   custom_update: _drop
   pre_read: |
     # for this module, we're hitting the list endpoint and filtering on display name
-    read_uri = f"{op_configs.base_url.uri}?filter=displayName={params.get("display_name")}"
+    read_uri = op_configs.base_url.uri + "?filter=displayName=" + params.get("display_name")
   post_read: |
     # if there are existing indexes, the call would have returned a list
     if not gcp.empty(existing_obj):
