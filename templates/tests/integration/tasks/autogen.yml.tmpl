@@ -2,9 +2,17 @@
 ---
 - name: Main test block
   block:
+    - name: Setup
+      ansible.builtin.debug:
+        msg: "Setup"
+
     {{ exec "network_setup" . | indent 4 false }}
 
     {{ $.Examples.ToString "test" | trimSpace | indent 4 false }}
 
   always:
     {{ exec "network_teardown" . | indent 4 false }}
+
+    - name: Teardown
+      ansible.builtin.debug:
+        msg: "Teardown"
