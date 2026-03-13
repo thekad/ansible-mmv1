@@ -1,0 +1,30 @@
+---
+examples:
+  - name: colab_notebook_execution_basic
+    exclude_test: true
+  - name: colab_notebook_execution_custom_env
+    exclude_test: true
+  - name: colab_notebook_execution_dataform
+    exclude_test: true
+  - name: colab_notebook_execution_full
+    exclude_docs: true
+custom_code:
+  pre_read: |
+    # for this module, we're hitting the list endpoint and filtering on display name
+    read_uri = op_configs.base_url.uri + "?filter=displayName=" + params.get("display_name")
+  post_read: |
+    # if there are existing notebook executions, the call would have returned a list
+    if not gcp.empty(existing_obj):
+        for nb in existing_obj.get("notebookExecutionJobs", []):
+            if nb.get("displayName") == params.get("display_name"):
+                existing_obj = nb
+                break
+  pre_create: |
+    # if not provided, blank the notebook execution job id
+    params["notebook_execution_job_id"] = params.get("notebook_execution_job_id", "")
+  post_create: _drop
+  custom_update:
+    raise Exception("Updating a notebook execution is not supported")
+  pre_delete: |
+    # need to set required parameter "notebook_execution_job_id" from existing resource name
+    params["notebook_execution_job_id"] = existing_obj["name"].split("/")[-1]

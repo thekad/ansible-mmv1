@@ -1,0 +1,82 @@
+---
+examples:
+  - name: colab_runtime_basic
+    exclude_test: true
+  - name: colab_runtime_stopped
+    exclude_test: true
+  - name: colab_runtime_full
+    exclude_docs: true
+virtual_fields:
+  - name: 'desired_state'
+    description: |
+      Desired state of the Colab Runtime. Set this field to `RUNNING` to start the runtime, and `STOPPED` to stop it.
+    type: Enum
+    enum_values:
+      - RUNNING
+      - STOPPED
+    default_value: "RUNNING"
+parameters:
+  - name: name
+    type: String
+    url_param_only: true
+    description: 'The resource name of the Runtime'
+    immutable: true
+    required: true
+custom_code:
+  pre_read: |
+    def change_state(state_link, async_state_link, resource, retries, verb):
+        """Change the state of the runtime"""
+
+        resource._state = "update"
+        async_state_func = getattr(resource, "post_async")
+        return async_state_func(state_link + f":{verb}", async_link=async_state_link, retries=retries)
+  custom_import: |
+    import copy
+    import time
+  encoder: |
+    if self._state in ["absent", "update"]:  # no encoding when making a DELETE or POST request
+        return {}
+    self.debug(func="encoder", encoded=False, obj=obj)
+    r = {}
+    tmp = copy.deepcopy(obj)
+    tplRef = tmp.pop("notebookRuntimeTemplateRef", None)
+    if tplRef:
+        r["notebookRuntimeTemplate"] = tplRef["notebookRuntimeTemplate"]  # sub-field is required
+    r["notebookRuntime"] = tmp
+    self.debug(func="encoder", encoded=True, obj=r)
+
+    return r
+  post_create: |
+    # stop runtime if desired_state is STOPPED
+    if params.get("desired_state") == "STOPPED":
+        gcp.debug(module, msg="Changing runtime state to STOPPED")
+        state_link = build_link(params, op_configs.update.uri)
+        state_async_uri = op_configs.update.async_uri
+        async_state_link = build_link(params, "") + state_async_uri
+        new_obj = change_state(state_link, async_state_link, resource, op_configs.update.timeout, "stop")
+    # wait for runtime to reach desired state
+    while True:
+        new_obj = resource.get(read_url)
+        gcp.debug(module, polling=new_obj, action="post_create")
+        if new_obj.get("runtimeState") == params.get("desired_state"):
+            break
+        time.sleep(1)
+  custom_update: |
+    desired_state = params.get("desired_state")
+    state_link = build_link(params, update_uri)
+    async_state_link = build_link(params, "") + update_async_uri
+    if desired_state != existing_obj.get("runtimeState"):
+        gcp.debug(module, msg=f"Changing runtime state to {desired_state}")
+        new_obj = change_state(state_link, async_state_link, resource, op_configs.update.timeout, "start" if desired_state == "RUNNING" else "stop")
+        # wait for runtime to reach desired state
+        while True:
+            new_obj = resource.get(read_url)
+            gcp.debug(module, polling=new_obj, action="custom_update")
+            if new_obj.get("runtimeState") == params.get("desired_state"):
+                break
+            time.sleep(1)
+    auto_upgrade = params.get("auto_upgrade", False)
+    is_upgradable = existing_obj.get("isUpgradable", False)
+    if auto_upgrade and is_upgradable:
+        gcp.debug(module, msg="Upgrading runtime")
+        new_obj = change_state(state_link, async_state_link, resource, op_configs.update.timeout, "upgrade")

@@ -18,6 +18,12 @@ overwrite: true
 # Each product can optionally specify a list of resources.
 # If resources is empty or omitted, all resources for that product will be generated.
 products:
+  - name: colab
+    resources:
+      - RuntimeTemplate
+      - Runtime
+      - NotebookExecution
+      - Schedule
   - name: vertexai
     resources:
       - Dataset
