@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	mmv1api "github.com/GoogleCloudPlatform/magic-modules/mmv1/api"
+	"github.com/rs/zerolog/log"
 )
 
 type OperationConfig struct {
@@ -68,13 +69,18 @@ func NewOperationConfigsFromMmv1(mmv1 *mmv1api.Resource) map[string]*OperationCo
 	}
 
 	async := mmv1.GetAsync()
+	log.Debug().Msgf("async: %v", async)
 	if async != nil {
 		for _, action := range async.Actions {
-			ops[strings.ToLower(action)].AsyncUriTemplate = escapeCurlyBraces(async.Operation.BaseUrl)
+			if async.Operation == nil || async.Operation.BaseUrl == "" {
+				ops[strings.ToLower(action)].AsyncUriTemplate = "{op_id}"
+			} else {
+				ops[strings.ToLower(action)].AsyncUriTemplate = escapeCurlyBraces(async.Operation.BaseUrl)
+			}
 		}
 	}
 
-	// log.Debug().Msgf("operation configs: %v", ops)
+	log.Debug().Msgf("operation configs: %v", ops)
 
 	return ops
 }
