@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	mmv1api "github.com/GoogleCloudPlatform/magic-modules/mmv1/api"
+	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v3"
 )
 
@@ -17,6 +18,7 @@ const MAX_DESCRIPTION_LENGTH = 140
 
 // parsePropertyDescription converts API property description to Ansible format i.e. multi-line string to list of strings
 func parsePropertyDescription(property *mmv1api.Type) []string {
+	log.Info().Msgf("parsing description for %s", property.Name)
 	description := property.Description
 	if property.Description == "" {
 		description = "No description available."
@@ -25,7 +27,7 @@ func parsePropertyDescription(property *mmv1api.Type) []string {
 	// cleanup description from magic-modules
 	description = strings.TrimPrefix(description, "Required. ") // there's a specific "required" field
 	description = strings.TrimPrefix(description, "Optional. ") // the absence of "required" field means optional
-	immutable := strings.HasPrefix(description, "Immutable.")
+	immutable := property.Immutable || strings.HasPrefix(description, "Immutable.")
 	description = strings.TrimPrefix(description, "Immutable. ") // a note is added to the description if the property is immutable
 	description = strings.Join(strings.Split(description, "\n"), " ")
 
@@ -41,10 +43,12 @@ func parsePropertyDescription(property *mmv1api.Type) []string {
 	}
 
 	if len(cleanLines) == 0 {
+		log.Debug().Msgf("no description for %s", property.Name)
 		cleanLines = []string{"No description available."}
 	}
 
 	if property.Type == "ResourceRef" {
+		log.Debug().Msgf("%s is a resource ref", property.Name)
 		sourceRefDesc := []string{
 			fmt.Sprintf("This field is a reference to a %s resource in GCP.", property.Resource),
 			fmt.Sprintf("It can be specified in two ways: First, you can place a dictionary with key '%s' matching your resource.", string(property.Imports)),
@@ -54,6 +58,7 @@ func parsePropertyDescription(property *mmv1api.Type) []string {
 	}
 
 	if immutable {
+		log.Debug().Msgf("%s is immutable", property.Name)
 		cleanLines = append(cleanLines, "This property is immutable, to change it, you must delete and recreate the resource.")
 	}
 
