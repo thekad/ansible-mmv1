@@ -215,7 +215,7 @@ def main():
     {{- end }}
 
     read_url = build_link(params, read_uri)
-    existing_obj = resource.get(read_url, allow_not_found=True) or {}
+    existing_obj = resource.decode_func(resource.get(read_url, allow_not_found=True) or {})
     new_obj = {}
     gcp.debug(module, existing=existing_obj, post=False)
 
@@ -263,6 +263,7 @@ def main():
                     )
                 else:
                     new_obj = create_func(create_link)
+                new_obj = resource.decode_func(new_obj)
                 gcp.debug(module, new=new_obj, action="create", post=False)
                 {{- if and $.CustomCode.PostCreate (not (strEq $.CustomCode.PostCreate "_drop")) }}
                 # --------- BEGIN post-create custom code ---------
@@ -319,6 +320,7 @@ def main():
                     )
                 else:
                     new_obj = delete_func(delete_link)
+                new_obj = resource.decode_func(new_obj)
                 {{- if and $.CustomCode.PostDelete (not (strEq $.CustomCode.PostDelete "_drop")) }}
                 # --------- BEGIN post-delete custom code ---------
                 {{ $.CustomCode.PostDelete | indent 16 false }}
@@ -361,6 +363,7 @@ def main():
                         )
                     else:
                         new_obj = update_func(update_link)
+                    new_obj = resource.decode_func(new_obj)
                     gcp.debug(module, new=new_obj, action="update", post=False)
                     {{- if and $.CustomCode.PostUpdate (not (strEq $.CustomCode.PostUpdate "_drop")) }}
                     # --------- BEGIN post-update custom code ---------
@@ -377,7 +380,9 @@ def main():
             else:
                 new_obj = existing_obj
 
+    new_obj = resource.from_response(resource.get(read_url, allow_not_found=True) or {})
     new_obj.update({"changed": changed})
+    gcp.debug(module, final_obj=new_obj, changed=changed)
     module.exit_json(**new_obj)
 
 
