@@ -1,6 +1,3 @@
-properties:
-  - name: initialUser
-    required: true
 custom_code:
   pre_create: |
     secondary_config = module.params.get("secondary_config")
@@ -11,6 +8,12 @@ custom_code:
     # for secondary clusters, the creation link changes slightly
     if cluster_type == "SECONDARY":
         create_link = create_link.replace("clusters?clusterId", "clusters:createsecondary?cluster_id")
+
+    # for primary clusters, require an initial_user
+    if cluster_type == "PRIMARY":
+        initial_user = module.params.get("initial_user")
+        if not initial_user:
+            module.fail_json(msg="An initial_user is required when cluster_type=PRIMARY")
   pre_update: |
     secondary_config = module.params.get("secondary_config")
     cluster_type = module.params.get("cluster_type")
