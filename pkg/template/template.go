@@ -56,7 +56,7 @@ func (td *TemplateData) executeTemplate(templateName string, input any) (bytes.B
 	tmpl := template.New(filepath.Base(templateName))
 
 	// Create function map with special function exec that will have access to the template object
-	funcs := funcMap()
+	funcs := funcMap(os.DirFS(td.TemplateDirectory))
 	funcs["exec"] = func(templateName string, data interface{}) (string, error) {
 		var buf strings.Builder
 		err := tmpl.ExecuteTemplate(&buf, templateName, data)

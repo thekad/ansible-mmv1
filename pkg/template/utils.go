@@ -5,6 +5,7 @@ package templates
 
 import (
 	"encoding/json"
+	"io/fs"
 	"maps"
 	"reflect"
 	"sort"
@@ -16,7 +17,7 @@ import (
 	"github.com/thekad/ansible-mmv1/pkg/ansible"
 )
 
-func funcMap() gotpl.FuncMap {
+func funcMap(templateFs fs.FS) gotpl.FuncMap {
 	funcMap := gotpl.FuncMap{
 		// Comparison functions
 		"eq":    eqFunc,
@@ -44,7 +45,7 @@ func funcMap() gotpl.FuncMap {
 		"mmv1ToAnsible": ansible.MapMmv1ToAnsible,
 	}
 	// Copy google template functions
-	maps.Copy(funcMap, google.TemplateFunctions)
+	maps.Copy(funcMap, google.TemplateFunctions(templateFs))
 
 	return funcMap
 }
