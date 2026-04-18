@@ -12,13 +12,13 @@ import (
 )
 
 type Examples struct {
-	DocExamples  []mmv1resource.Examples
-	TestExamples []mmv1resource.Examples
+	DocExamples  []*mmv1resource.Examples
+	TestExamples []*mmv1resource.Examples
 }
 
 func NewExamplesFromMmv1(mmv1 *mmv1api.Resource) *Examples {
-	docExamples := []mmv1resource.Examples{}
-	testExamples := []mmv1resource.Examples{}
+	docExamples := []*mmv1resource.Examples{}
+	testExamples := []*mmv1resource.Examples{}
 	for _, example := range mmv1.Examples {
 		if !example.ExcludeDocs {
 			docExamples = append(docExamples, example)
@@ -36,7 +36,7 @@ func NewExamplesFromMmv1(mmv1 *mmv1api.Resource) *Examples {
 func (e *Examples) ToString(which string) string {
 	separator := fmt.Sprintf("\n%s\n\n", strings.Repeat("#", 80))
 	exampleStrings := []string{}
-	examples := []mmv1resource.Examples{}
+	examples := []*mmv1resource.Examples{}
 	switch which {
 	case "doc":
 		examples = e.DocExamples
