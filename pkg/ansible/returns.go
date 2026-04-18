@@ -88,6 +88,8 @@ func mapMmv1TypeToReturnType(property *mmv1api.Type) (ReturnType, error) {
 		return ReturnTypeDict, nil
 	case "KeyValuePairs":
 		return ReturnTypeDict, nil
+	case "KeyValueEffectiveLabels":
+		return ReturnTypeDict, nil
 	case "Array":
 		return ReturnTypeList, nil
 	case "Enum":
