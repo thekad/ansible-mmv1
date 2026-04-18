@@ -5,11 +5,8 @@ git:
   rev: main
   pull: false
 
-# Path to override files
-# overrides: overrides
-
-# Path to template files
-# templates: templates
+# Optional overlay (layout: products/, templates/) merged over base
+# overlay: overlay
 
 # Overwrite existing files
 overwrite: true
