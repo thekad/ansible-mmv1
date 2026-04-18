@@ -338,7 +338,7 @@ func convertPropertiesToOptions(properties []*mmv1api.Type, parent *Option, virt
 		if !property.Sensitive && looksLikeSensitiveField(property.Name) {
 			// Explicitly set to false if it looks sensitive but isn't marked as such
 			noLog = &falseVal
-			log.Debug().Msgf("property %s looks sensitive but is not marked as such, explicitly setting NoLog to false", property.Name)
+			log.Warn().Str("property", property.Name).Msgf("property looks sensitive, explicitly setting NoLog to false")
 		} else if property.Sensitive {
 			noLog = &trueVal
 		} else {
