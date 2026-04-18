@@ -18,7 +18,6 @@ const MAX_DESCRIPTION_LENGTH = 140
 
 // parsePropertyDescription converts API property description to Ansible format i.e. multi-line string to list of strings
 func parsePropertyDescription(property *mmv1api.Type) []string {
-	log.Info().Msgf("parsing description for %s", property.Name)
 	description := property.Description
 	if property.Description == "" {
 		description = "No description available."
@@ -98,86 +97,6 @@ func ToYAML(data interface{}) string {
 
 	encoder.Close()
 	return buf.String()
-}
-
-// setFoldedStyleForDescriptions recursively sets folded style for description fields
-func setFoldedStyleForDescriptions(node *yaml.Node) {
-	if node == nil {
-		return
-	}
-
-	// If this is a mapping node, look for description keys
-	if node.Kind == yaml.MappingNode {
-		for i := 0; i < len(node.Content); i += 2 {
-			keyNode := node.Content[i]
-			valueNode := node.Content[i+1]
-
-			// Check if the key is "description"
-			if keyNode.Kind == yaml.ScalarNode && keyNode.Value == "description" {
-				// Set folded style for the description value
-				if valueNode.Kind == yaml.SequenceNode {
-					// For arrays of strings, set each string to use folded style
-					for _, item := range valueNode.Content {
-						if item.Kind == yaml.ScalarNode && item.Tag == "!!str" {
-							if len(item.Value) > MAX_DESCRIPTION_LENGTH {
-								item.Style = yaml.FoldedStyle
-								item.Value = strings.Join(breakLineByLength(item.Value), "\n")
-							}
-						}
-					}
-				} else if valueNode.Kind == yaml.ScalarNode && valueNode.Tag == "!!str" {
-					// For single strings, use folded style
-					if len(valueNode.Value) > MAX_DESCRIPTION_LENGTH {
-						valueNode.Style = yaml.FoldedStyle
-						valueNode.Value = strings.Join(breakLineByLength(valueNode.Value), "\n")
-					}
-				}
-			}
-		}
-	}
-
-	// Recursively process child nodes
-	for _, child := range node.Content {
-		setFoldedStyleForDescriptions(child)
-	}
-}
-
-// breakLineByLength breaks a line into chunks of maxLength characters or less, breaking on word boundaries
-func breakLineByLength(line string) []string {
-	if len(line) <= MAX_DESCRIPTION_LENGTH {
-		return []string{line}
-	}
-
-	var chunks []string
-	words := strings.Fields(line) // Split by whitespace
-	currentChunk := ""
-
-	for _, word := range words {
-		// Check if adding this word would exceed the limit
-		testChunk := currentChunk
-		if testChunk != "" {
-			testChunk += " "
-		}
-		testChunk += word
-
-		if len(testChunk) <= MAX_DESCRIPTION_LENGTH {
-			// Word fits, add it to current chunk
-			currentChunk = testChunk
-		} else {
-			// Word doesn't fit, start a new chunk
-			if currentChunk != "" {
-				chunks = append(chunks, currentChunk)
-			}
-			currentChunk = word
-		}
-	}
-
-	// Add the last chunk if it's not empty
-	if currentChunk != "" {
-		chunks = append(chunks, currentChunk)
-	}
-
-	return chunks
 }
 
 // sortYAMLMapKeys recursively sorts all map keys in a YAML node tree for consistent output
