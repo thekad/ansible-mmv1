@@ -9,8 +9,10 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	mmv1product "github.com/GoogleCloudPlatform/magic-modules/mmv1/api/product"
@@ -28,8 +30,87 @@ import (
 const MMV1_REPO string = "https://github.com/GoogleCloudPlatform/magic-modules"
 const MIN_VERSION string = "beta"
 
-// defaultAnsibleTemplates is the directory for Ansible codegen templates (module.tmpl, integration tests, etc.).
-const defaultAnsibleTemplates = "templates"
+// generationWorkerCount caps concurrent module generation (templates + formatters).
+func generationWorkerCount(numModules int) int {
+	if numModules <= 1 {
+		return 1
+	}
+	n := runtime.NumCPU()
+	if n < 2 {
+		n = 2
+	}
+	if n > 16 {
+		n = 16
+	}
+	if n > numModules {
+		n = numModules
+	}
+	return n
+}
+
+func generateModule(templateData *tpl.TemplateData, m *ansible.Module, noCode, noTests, noFormat bool) error {
+	if !noCode {
+		log.Info().Msgf("generating code for ansible module: %s", m)
+		if err := templateData.GenerateCode(m); err != nil {
+			return fmt.Errorf("generate code for %s: %w", m.Name, err)
+		}
+		if !noFormat {
+			filePath := path.Join(templateData.ModuleDirectory, fmt.Sprintf("%s.py", m.Name))
+			log.Info().Msgf("formatting ansible module file: %s", filePath)
+			if err := formatFile(filePath, "black"); err != nil {
+				return fmt.Errorf("format %s: %w", m.Name, err)
+			}
+		}
+	}
+	if !noTests || len(m.Resource.Mmv1.Examples) > 0 {
+		log.Info().Msgf("generating tests for ansible module: %s", m)
+		if err := templateData.GenerateTests(m); err != nil {
+			return fmt.Errorf("generate tests for %s: %w", m.Name, err)
+		}
+		if !noFormat {
+			dirPath := path.Join(templateData.IntegrationTestDirectory, m.Name)
+			log.Info().Msgf("formatting integration tests for %s", m.Name)
+			if err := formatFile(dirPath, "yamlfmt"); err != nil {
+				return fmt.Errorf("format tests for %s: %w", m.Name, err)
+			}
+		}
+	}
+	return nil
+}
+
+func generateModules(templateData *tpl.TemplateData, modules []*ansible.Module, noCode, noTests, noFormat bool) error {
+	if len(modules) == 0 {
+		return nil
+	}
+	workers := generationWorkerCount(len(modules))
+	jobs := make(chan *ansible.Module, len(modules))
+	for _, m := range modules {
+		jobs <- m
+	}
+	close(jobs)
+
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var firstErr error
+
+	for w := 0; w < workers; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for m := range jobs {
+				if err := generateModule(templateData, m, noCode, noTests, noFormat); err != nil {
+					mu.Lock()
+					if firstErr == nil {
+						firstErr = err
+					}
+					mu.Unlock()
+				}
+			}
+		}()
+	}
+	wg.Wait()
+	return firstErr
+}
 
 // ProductConfig holds per-product configuration with optional resource list
 type ProductConfig struct {
@@ -147,7 +228,7 @@ func buildProductResourceMap(products []ProductConfig) map[string][]string {
 		// Normalize resource names to lowercase
 		resources := make([]string, len(p.Resources))
 		for i, r := range p.Resources {
-			resources[i] = strings.ToLower(r)
+			resources[i] = strings.ToLower(strings.TrimSpace(r))
 		}
 		prm[strings.ToLower(p.Name)] = resources
 	}
@@ -180,8 +261,9 @@ func getProductsConfig(cmd *cobra.Command) []ProductConfig {
 	for i, p := range productNames {
 		productNames[i] = strings.ToLower(strings.TrimSpace(p))
 	}
+	resources := make([]string, len(resourceNames))
 	for i, r := range resourceNames {
-		resourceNames[i] = strings.ToLower(strings.TrimSpace(r))
+		resources[i] = strings.ToLower(strings.TrimSpace(r))
 	}
 
 	// Build ProductConfig list from CLI args
@@ -189,7 +271,7 @@ func getProductsConfig(cmd *cobra.Command) []ProductConfig {
 	for i, p := range productNames {
 		products[i] = ProductConfig{
 			Name:      p,
-			Resources: resourceNames, // all products share the same resource filter
+			Resources: resources, // all products share the same resource filter
 		}
 	}
 	return products
@@ -280,7 +362,7 @@ func runGenerate(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	ansibleTemplateDir, err := filepath.Abs(defaultAnsibleTemplates)
+	ansibleTemplateDir, err := filepath.Abs("templates") // ansible specific templates
 	if err != nil {
 		log.Fatal().Err(err).Msg("invalid ansible templates path")
 	}
@@ -328,9 +410,11 @@ func runGenerate(cmd *cobra.Command, args []string) {
 			if mmRes == nil {
 				continue
 			}
-			if len(resourceList) > 0 && !slices.Contains(resourceList, strings.ToLower(mmRes.Name)) {
-				continue
-			}
+			/*
+				if len(resourceList) > 0 && !slices.Contains(resourceList, strings.ToLower(mmRes.Name)) {
+					continue
+				}
+			*/
 
 			if err := api.ReloadAnsibleExamples(mmRes, sysfs); err != nil {
 				log.Fatal().Err(err).Str("product", short).Str("resource", mmRes.Name).Msg("failed to load Ansible example templates")
@@ -347,43 +431,8 @@ func runGenerate(cmd *cobra.Command, args []string) {
 			modulesToGenerate = append(modulesToGenerate, module)
 		}
 	}
-	// generate modules
-
-	for _, m := range modulesToGenerate {
-		// generate code for resources
-		if !noCode {
-			log.Info().Msgf("generating code for ansible module: %s", m)
-			err := templateData.GenerateCode(m)
-			if err != nil {
-				log.Fatal().Err(err).Msg("failed to generate code for ansible module")
-			}
-
-			if !noFormat {
-				filePath := path.Join(templateData.ModuleDirectory, fmt.Sprintf("%s.py", m.Name))
-				log.Info().Msgf("formatting ansible module file: %s", filePath)
-				err := formatFile(filePath, "black")
-				if err != nil {
-					log.Fatal().Err(err).Msg("failed to format code for ansible module")
-				}
-			}
-		}
-		// generate tests for resources
-		if !noTests {
-			log.Info().Msgf("generating tests for ansible module: %s", m)
-			err := templateData.GenerateTests(m)
-			if err != nil {
-				log.Fatal().Err(err).Msg("failed to generate tests for ansible module")
-			}
-
-			if !noFormat {
-				dirPath := path.Join(templateData.IntegrationTestDirectory, m.Name)
-				log.Info().Msgf("formatting integration tests for %s", m.Name)
-				err := formatFile(dirPath, "yamlfmt")
-				if err != nil {
-					log.Fatal().Err(err).Msg("failed to format integration tests for ansible module")
-				}
-			}
-		}
+	if err := generateModules(templateData, modulesToGenerate, noCode, noTests, noFormat); err != nil {
+		log.Fatal().Err(err).Msg("module generation failed")
 	}
 }
 
