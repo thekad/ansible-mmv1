@@ -1,7 +1,5 @@
 ---
 examples:
-  - name: 'cloudbuildv2_connection'
-    _drop: true
   - name: 'cloudbuildv2_connection_gitlab'
     exclude_test: true
 custom_code:

@@ -57,6 +57,8 @@ func MapMmv1ToAnsible(property *mmv1api.Type) Type {
 		return TypeDict
 	case "KeyValuePairs":
 		return TypeDict
+	case "KeyValueEffectiveLabels":
+		return TypeDict
 	case "Array":
 		return TypeList
 	case "Enum":
@@ -338,7 +340,7 @@ func convertPropertiesToOptions(properties []*mmv1api.Type, parent *Option, virt
 		if !property.Sensitive && looksLikeSensitiveField(property.Name) {
 			// Explicitly set to false if it looks sensitive but isn't marked as such
 			noLog = &falseVal
-			log.Warn().Str("property", property.Name).Msgf("property looks sensitive, explicitly setting NoLog to false")
+			log.Info().Str("property", property.Name).Msgf("property looks sensitive, explicitly setting NoLog to false")
 		} else if property.Sensitive {
 			noLog = &trueVal
 		} else {

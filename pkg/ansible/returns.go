@@ -150,12 +150,18 @@ func convertPropertiesToReturns(properties []*mmv1api.Type) map[string]*ReturnAt
 	returns := make(map[string]*ReturnAttribute)
 
 	for _, property := range properties {
+		if property.Name == "effectiveLabels" || property.Name == "effectiveAnnotations" {
+			log.Debug().Msgf("skipping TF-only property: %s", property.Name)
+			continue
+		}
+
 		returnName := property.Name
 
 		// Create the return attribute
 		returnType, err := mapMmv1TypeToReturnType(property)
 		if err != nil {
 			log.Warn().Err(err).Msgf("error mapping return type for property %s", property.Name)
+			continue
 		}
 
 		returnAttr := &ReturnAttribute{
