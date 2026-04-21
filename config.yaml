@@ -15,11 +15,21 @@ overwrite: true
 # Each product can optionally specify a list of resources.
 # If resources is empty or omitted, all resources for that product will be generated.
 products:
+  - name: alloydb
+    resources:
+      - Backup
+      - Cluster
+      - Instance
+      - User
+  - name: cloudbuildv2
+    resources:
+      - Connection
+      - Repository
   - name: colab
     resources:
-      - RuntimeTemplate
-      - Runtime
       - NotebookExecution
+      - Runtime
+      - RuntimeTemplate
       - Schedule
   - name: vertexai
     resources:
