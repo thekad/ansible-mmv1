@@ -1,7 +1,7 @@
 // Copyright 2026 Red Hat Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-package loader
+package api
 
 import (
 	"errors"
@@ -16,7 +16,6 @@ import (
 	"github.com/GoogleCloudPlatform/magic-modules/mmv1/google"
 	mmv1loader "github.com/GoogleCloudPlatform/magic-modules/mmv1/loader"
 	"github.com/rs/zerolog/log"
-	"github.com/thekad/ansible-mmv1/pkg/api"
 )
 
 // AnsibleExamplesDir is the path example templates live, mirroring
@@ -105,12 +104,12 @@ func terraformExamplesToAnsible(terraformPath string) (ansiblePath string, ok bo
 	return path.Join(AnsibleExamplesDir, stem+".tmpl"), true
 }
 
-// Run loads Magic Modules products. If onlyProductShortNames is non-empty, only
+// LoadProducts loads Magic Modules products. If onlyProductShortNames is non-empty, only
 // those products are loaded via LoadProduct; otherwise LoadProducts() loads the
 // full catalog. An empty slice means “all products”.
 //
 // The wrapped FS redirects Terraform example paths to Ansible templates when present
-func Run(mmv1Root, overlayDir, version string, productFilter []string) (google.ReadDirReadFileFS, *mmv1loader.Loader, error) {
+func LoadProducts(mmv1Root, overlayDir, version string, productFilter []string) (google.ReadDirReadFileFS, *mmv1loader.Loader, error) {
 	ofs, err := google.NewOverlayFS(overlayDir, mmv1Root)
 	if err != nil {
 		return nil, nil, err
@@ -183,9 +182,9 @@ func ShortName(productKey string) string {
 }
 
 // WrapProduct builds ansible-mmv1's api.Product from a loaded MMv1 product.
-func WrapProduct(mmProd *mmv1api.Product, mmRoot string) *api.Product {
+func WrapProduct(mmProd *mmv1api.Product, mmRoot string) *Product {
 	short := ShortName(mmProd.PackagePath)
-	return &api.Product{
+	return &Product{
 		Name: short,
 		File: filepath.Join(mmRoot, mmProd.PackagePath, "product.yaml"),
 		Mmv1: mmProd,
@@ -193,8 +192,8 @@ func WrapProduct(mmProd *mmv1api.Product, mmRoot string) *api.Product {
 }
 
 // WrapResource builds ansible-mmv1's api.Resource.
-func WrapResource(mmRes *mmv1api.Resource, parent *api.Product, mmRoot string) *api.Resource {
-	return &api.Resource{
+func WrapResource(mmRes *mmv1api.Resource, parent *Product, mmRoot string) *Resource {
+	return &Resource{
 		Name:   mmRes.Name,
 		File:   filepath.Join(mmRoot, mmRes.SourceYamlFile),
 		Mmv1:   mmRes,
