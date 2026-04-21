@@ -244,37 +244,36 @@ func getProductNames(products []ProductConfig) []string {
 	return names
 }
 
-// getProductsConfig returns the products configuration, handling both
-// config file format (products with nested resources) and CLI format (flat lists)
-func getProductsConfig(cmd *cobra.Command) []ProductConfig {
-	// First check if products are defined in config file format
-	var configProducts []ProductConfig
-	if err := viper.UnmarshalKey("products", &configProducts); err == nil && len(configProducts) > 0 {
-		return configProducts
-	}
-
-	// Fall back to CLI-style flat lists
-	productNames, _ := cmd.Flags().GetStringSlice("products")
-	resourceNames, _ := cmd.Flags().GetStringSlice("resources")
-
-	// Normalize to lowercase
-	for i, p := range productNames {
-		productNames[i] = strings.ToLower(strings.TrimSpace(p))
-	}
-	resources := make([]string, len(resourceNames))
-	for i, r := range resourceNames {
-		resources[i] = strings.ToLower(strings.TrimSpace(r))
-	}
-
-	// Build ProductConfig list from CLI args
-	products := make([]ProductConfig, len(productNames))
-	for i, p := range productNames {
-		products[i] = ProductConfig{
-			Name:      p,
-			Resources: resources, // all products share the same resource filter
-		}
+// getConfigProducts returns product entries from the config file only (viper).
+// Nil or empty means the config does not define a product list, so no config-level
+// product/resource filtering is applied.
+func getConfigProducts() []ProductConfig {
+	var products []ProductConfig
+	if err := viper.UnmarshalKey("products", &products); err != nil || len(products) == 0 {
+		return nil
 	}
 	return products
+}
+
+// getCLIProductResourceFilters returns normalized --products and --resources from the CLI.
+func getCLIProductResourceFilters(cmd *cobra.Command) (products []string, resources []string) {
+	productNames, _ := cmd.Flags().GetStringSlice("products")
+	resourceNames, _ := cmd.Flags().GetStringSlice("resources")
+	products = make([]string, 0, len(productNames))
+	for _, p := range productNames {
+		p = strings.ToLower(strings.TrimSpace(p))
+		if p != "" {
+			products = append(products, p)
+		}
+	}
+	resources = make([]string, 0, len(resourceNames))
+	for _, r := range resourceNames {
+		r = strings.ToLower(strings.TrimSpace(r))
+		if r != "" {
+			resources = append(resources, r)
+		}
+	}
+	return products, resources
 }
 
 // doGitClone clones the git repository to the given path
@@ -347,10 +346,12 @@ func runGenerate(cmd *cobra.Command, args []string) {
 		gitPull = false
 	}
 
-	// Get products configuration
-	productsConfig := getProductsConfig(cmd)
-	productResources := buildProductResourceMap(productsConfig)
-	productNames := getProductNames(productsConfig)
+	// Filter chain: config product names passed into LoadProducts (empty = all products),
+	// then per-resource config list + CLI --products/--resources in the loop below.
+	configProducts := getConfigProducts()
+	configProductResources := buildProductResourceMap(configProducts)
+	configProductNames := getProductNames(configProducts)
+	cliProducts, cliResources := getCLIProductResourceFilters(cmd)
 
 	absGitDir, _ := filepath.Abs(gitDir)
 	var overlayDir string
@@ -383,7 +384,7 @@ func runGenerate(cmd *cobra.Command, args []string) {
 		log.Info().Msgf("overlay directory: %s", overlayDir)
 	}
 
-	sysfs, loader, err := api.LoadProducts(mmv1Root, overlayDir, minVersion, productNames)
+	sysfs, loader, err := api.LoadProducts(mmv1Root, overlayDir, minVersion, configProductNames)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to load Magic Modules (loader)")
 	}
@@ -397,24 +398,29 @@ func runGenerate(cmd *cobra.Command, args []string) {
 
 	for _, pKey := range api.ProductKeys(loader) {
 		short := api.ShortName(pKey)
-		if len(productNames) > 0 && !slices.Contains(productNames, short) {
+		// CLI --products (config product scope is already applied in LoadProducts).
+		if len(cliProducts) > 0 && !slices.Contains(cliProducts, short) {
 			continue
 		}
 
 		mmv1Product := loader.Products[pKey]
 		apiProd := api.WrapProduct(mmv1Product, mmv1Root)
-		resourceList := productResources[short]
-		log.Debug().Msgf("resource list for %s: %v", short, resourceList)
+		configResourceList := configProductResources[short]
+		log.Debug().Msgf("config resource list for %s: %v", short, configResourceList)
 
 		for _, mmRes := range mmv1Product.Objects {
 			if mmRes == nil {
 				continue
 			}
-			/*
-				if len(resourceList) > 0 && !slices.Contains(resourceList, strings.ToLower(mmRes.Name)) {
-					continue
-				}
-			*/
+			resLower := strings.ToLower(mmRes.Name)
+			// First filter: per-product resources from config (non-empty list only).
+			if len(configResourceList) > 0 && !slices.Contains(configResourceList, resLower) {
+				continue
+			}
+			// Second filter: CLI --resources (if any).
+			if len(cliResources) > 0 && !slices.Contains(cliResources, resLower) {
+				continue
+			}
 
 			if err := api.ReloadAnsibleExamples(mmRes, sysfs); err != nil {
 				log.Fatal().Err(err).Str("product", short).Str("resource", mmRes.Name).Msg("failed to load Ansible example templates")
