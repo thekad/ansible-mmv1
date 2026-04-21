@@ -21,7 +21,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/thekad/ansible-mmv1/pkg/ansible"
-	"github.com/thekad/ansible-mmv1/pkg/api/loader"
+	"github.com/thekad/ansible-mmv1/pkg/api"
 	tpl "github.com/thekad/ansible-mmv1/pkg/template"
 )
 
@@ -301,7 +301,7 @@ func runGenerate(cmd *cobra.Command, args []string) {
 		log.Info().Msgf("overlay directory: %s", overlayDir)
 	}
 
-	sysfs, l, err := loader.Run(mmv1Root, overlayDir, minVersion, productNames)
+	sysfs, loader, err := api.LoadProducts(mmv1Root, overlayDir, minVersion, productNames)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to load Magic Modules (loader)")
 	}
@@ -313,14 +313,14 @@ func runGenerate(cmd *cobra.Command, args []string) {
 	modulesToGenerate := []*ansible.Module{}
 	minVersionObj := &mmv1product.Version{Name: minVersion}
 
-	for _, pKey := range loader.ProductKeys(l) {
-		short := loader.ShortName(pKey)
+	for _, pKey := range api.ProductKeys(loader) {
+		short := api.ShortName(pKey)
 		if len(productNames) > 0 && !slices.Contains(productNames, short) {
 			continue
 		}
 
-		mmv1Product := l.Products[pKey]
-		apiProd := loader.WrapProduct(mmv1Product, mmv1Root)
+		mmv1Product := loader.Products[pKey]
+		apiProd := api.WrapProduct(mmv1Product, mmv1Root)
 		resourceList := productResources[short]
 		log.Debug().Msgf("resource list for %s: %v", short, resourceList)
 
@@ -332,11 +332,11 @@ func runGenerate(cmd *cobra.Command, args []string) {
 				continue
 			}
 
-			if err := loader.ReloadAnsibleExamples(mmRes, sysfs); err != nil {
+			if err := api.ReloadAnsibleExamples(mmRes, sysfs); err != nil {
 				log.Fatal().Err(err).Str("product", short).Str("resource", mmRes.Name).Msg("failed to load Ansible example templates")
 			}
 
-			r := loader.WrapResource(mmRes, apiProd, mmv1Root)
+			r := api.WrapResource(mmRes, apiProd, mmv1Root)
 			if r.Mmv1.NotInVersion(minVersionObj) {
 				log.Warn().Msgf("resource %s.%s minimum version is %v, but %s is required", r.Parent.Name, r.Name, r.MinVersion(), minVersion)
 				continue
