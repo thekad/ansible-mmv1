@@ -59,6 +59,8 @@ func MapMmv1ToAnsible(property *mmv1api.Type) Type {
 		return TypeDict
 	case "KeyValueEffectiveLabels":
 		return TypeDict
+	case "KeyValueTerraformLabels":
+		return TypeDict
 	case "Array":
 		return TypeList
 	case "Enum":

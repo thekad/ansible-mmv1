@@ -88,8 +88,6 @@ func mapMmv1TypeToReturnType(property *mmv1api.Type) (ReturnType, error) {
 		return ReturnTypeDict, nil
 	case "KeyValuePairs":
 		return ReturnTypeDict, nil
-	case "KeyValueEffectiveLabels":
-		return ReturnTypeDict, nil
 	case "Array":
 		return ReturnTypeList, nil
 	case "Enum":
@@ -150,7 +148,7 @@ func convertPropertiesToReturns(properties []*mmv1api.Type) map[string]*ReturnAt
 	returns := make(map[string]*ReturnAttribute)
 
 	for _, property := range properties {
-		if property.Name == "effectiveLabels" || property.Name == "effectiveAnnotations" {
+		if property.Name == "effectiveLabels" || property.Name == "effectiveAnnotations" || property.Name == "terraformLabels" {
 			log.Debug().Msgf("skipping TF-only property: %s", property.Name)
 			continue
 		}
