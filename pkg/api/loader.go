@@ -61,8 +61,8 @@ func (a *ansibleExampleRedirectFS) ReadFile(name string) ([]byte, error) {
 			return b2, nil
 		}
 		if errors.Is(err2, fs.ErrNotExist) {
-			log.Warn().Str("path", name).
-				Msg("example template not found; using empty example content")
+			log.Warn().Str("terraform_path", name).
+				Msg("fallback example template not found; using empty content")
 			return []byte{}, nil
 		}
 		return nil, err2

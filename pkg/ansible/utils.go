@@ -22,7 +22,6 @@ func parsePropertyDescription(property *mmv1api.Type) []string {
 	if property.Description == "" {
 		description = "No description available."
 	}
-
 	// cleanup description from magic-modules
 	description = strings.TrimPrefix(description, "Required. ") // there's a specific "required" field
 	description = strings.TrimPrefix(description, "Optional. ") // the absence of "required" field means optional
@@ -34,8 +33,14 @@ func parsePropertyDescription(property *mmv1api.Type) []string {
 	sentences := strings.Split(description, ". ")
 	var cleanLines []string
 
-	for _, line := range sentences {
-		trimmed := strings.TrimSpace(line)
+	for _, sentence := range sentences {
+		trimmed := strings.TrimSpace(sentence)
+		// skip TF-only doc strings
+		if strings.Contains(sentence, "effective_annotations") ||
+			strings.Contains(sentence, "effective_labels") ||
+			strings.Contains(sentence, "terraform_labels") {
+			continue
+		}
 		if trimmed != "" {
 			cleanLines = append(cleanLines, fmt.Sprintf("%s.", strings.TrimSuffix(trimmed, ".")))
 		}
