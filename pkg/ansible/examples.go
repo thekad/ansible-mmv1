@@ -9,6 +9,7 @@ import (
 
 	mmv1api "github.com/GoogleCloudPlatform/magic-modules/mmv1/api"
 	mmv1resource "github.com/GoogleCloudPlatform/magic-modules/mmv1/api/resource"
+	"github.com/rs/zerolog/log"
 )
 
 type Examples struct {
@@ -44,6 +45,10 @@ func (e *Examples) ToString(which string) string {
 		examples = e.TestExamples
 	}
 	for _, example := range examples {
+		if len(example.TestHCLText) <= 1 {
+			log.Info().Msgf("skipping empty example: %s", example.Name)
+			continue
+		}
 		exampleStrings = append(exampleStrings, example.TestHCLText)
 	}
 	return strings.Join(exampleStrings, separator)
