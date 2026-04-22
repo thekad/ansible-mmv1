@@ -1,13 +1,5 @@
 ---
 examples:
-  - name: vertex_ai_deploy_psc_endpoint_automated
-    _drop: true
-  - name: vertex_ai_deploy_with_configs
-    _drop: true
-  - name: vertex_ai_deploy_multiple_models_in_parallel
-    _drop: true
-  - name: vertex_ai_deploy_multiple_models_in_sequence
-    _drop: true
   - name: vertex_ai_deploy_test
     exclude_docs: true
 

@@ -1,10 +1,9 @@
 ---
-base_url: '{{parent_connection}}/repositories'
-self_link: '{{parent_connection}}/repositories/{{name}}'
-create_url: '{{parent_connection}}/repositories?repositoryId={{name}}'
+base_url: "{{parent_connection}}/repositories"
+self_link: "{{parent_connection}}/repositories/{{name}}"
+create_url: "{{parent_connection}}/repositories?repositoryId={{name}}"
 custom_code:
-  encoder: |
-    # no encoder needed
+  encoder: _drop
   decoder: |
     # the name returned from the API is FQDN, but the name
     # we send is just the "base name", convert it back to

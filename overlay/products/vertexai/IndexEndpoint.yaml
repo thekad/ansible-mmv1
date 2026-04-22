@@ -1,11 +1,7 @@
 ---
 examples:
-  - name: 'vertex_ai_index_endpoint_with_public_endpoint'
+  - name: vertex_ai_index_endpoint_with_public_endpoint
     exclude_test: true
-  - name: 'vertex_ai_index_endpoint_with_psc'
-    _drop: true
-  - name: 'vertex_ai_index_endpoint_with_false_psc'
-    _drop: true
 custom_code:
   pre_read: |
     # for this module, we're hitting the list endpoint and filtering on display name

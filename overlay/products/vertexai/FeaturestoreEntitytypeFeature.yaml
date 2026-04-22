@@ -1,13 +1,11 @@
 ---
 examples:
-  - name: 'vertex_ai_featurestore_entitytype_feature_with_beta_fields'
-    _drop: true
-  - name: 'vertex_ai_featurestore_entitytype_feature'
+  - name: vertex_ai_featurestore_entitytype_feature
     exclude_test: true
-  - name: 'vertex_ai_featurestore_entitytype_feature_test'
+  - name: vertex_ai_featurestore_entitytype_feature_test
     exclude_docs: true
 properties:
-  - name: 'name'
+  - name: name
     type: String
     description:
       The name of the feature. The feature can be up to 64 characters long and

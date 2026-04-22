@@ -1,14 +1,12 @@
 ---
 parameters:
-  - name: 'region'
+  - name: region
     type: String
     description: The region of the index. eg us-central1
     required: true
     url_param_only: true
     immutable: true
 examples:
-  - name: vertex_ai_index_endpoint_deployed_index_basic_two
-    _drop: true
   - name: vertex_ai_index_endpoint_deployed_index_basic
     exclude_test: true
   - name: vertex_ai_index_endpoint_deployed_index_automatic_resources

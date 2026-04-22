@@ -1,8 +1,8 @@
 ---
 examples:
-  - name: 'vertex_ai_feature_group'
+  - name: vertex_ai_feature_group
     exclude_test: true
-  - name: 'vertex_ai_feature_group_test'
+  - name: vertex_ai_feature_group_test
     exclude_docs: true
 custom_code:
   custom_import: |

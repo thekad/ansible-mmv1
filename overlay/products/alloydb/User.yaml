@@ -6,7 +6,3 @@ examples:
     exclude_test: true
   - name: "alloydb_user_builtin_test"
     exclude_docs: true
-  - name: "alloydb_user_iam"
-    _drop: true
-  - name: "alloydb_user_iam_test"
-    _drop: true

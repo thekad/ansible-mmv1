@@ -5,7 +5,7 @@ async:
     - update
     - delete
 properties:
-  - name: 'ragManagedDbConfig'
+  - name: ragManagedDbConfig
     type: Enum
     default_value: basic
     enum_values:

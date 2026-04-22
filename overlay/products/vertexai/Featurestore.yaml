@@ -1,15 +1,13 @@
 ---
 examples:
-  - name: 'vertex_ai_featurestore_with_beta_fields'
-    _drop: true
-  - name: 'vertex_ai_featurestore'
+  - name: vertex_ai_featurestore
     exclude_test: true
-  - name: 'vertex_ai_featurestore_scaling'
+  - name: vertex_ai_featurestore_scaling
     exclude_test: true
-  - name: 'vertex_ai_featurestore_test'
+  - name: vertex_ai_featurestore_test
     exclude_docs: true
 properties:
-  - name: 'name'
+  - name: name
     type: String
     description:
       The name of the Featurestore. This value may be up to 60 characters, and

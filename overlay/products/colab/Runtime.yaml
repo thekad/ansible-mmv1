@@ -7,19 +7,19 @@ examples:
   - name: colab_runtime_full
     exclude_docs: true
 virtual_fields:
-  - name: 'desired_state'
+  - name: desired_state
     description: |
       Desired state of the Colab Runtime. Set this field to `RUNNING` to start the runtime, and `STOPPED` to stop it.
     type: Enum
     enum_values:
       - RUNNING
       - STOPPED
-    default_value: "RUNNING"
+    default_value: RUNNING
 parameters:
   - name: name
     type: String
     url_param_only: true
-    description: 'The resource name of the Runtime'
+    description: The resource name of the Runtime
     immutable: true
     required: true
 custom_code:

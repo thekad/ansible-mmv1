@@ -1,6 +1,6 @@
 ---
 examples:
-  - name: 'cloudbuildv2_connection_gitlab'
+  - name: cloudbuildv2_connection_gitlab
     exclude_test: true
 custom_code:
   decoder: |

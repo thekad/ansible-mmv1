@@ -1,5 +1,5 @@
 ---
-self_link: projects/{project}/locations/{region}/tensorboards/{name}
+self_link: "projects/{project}/locations/{region}/tensorboards/{name}"
 examples:
   - name: vertex_ai_tensorboard
     exclude_test: true

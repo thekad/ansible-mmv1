@@ -1,13 +1,13 @@
 ---
 virtual_fields:
-  - name: 'desired_state'
+  - name: desired_state
     description: |
       Desired state of the Colab Schedule. Set this field to `ACTIVE` to start/resume the schedule, and `PAUSED` to pause the schedule.
     type: Enum
     enum_values:
       - ACTIVE
       - PAUSED
-    default_value: "ACTIVE"
+    default_value: ACTIVE
 examples:
   - name: colab_schedule_basic
     exclude_test: true

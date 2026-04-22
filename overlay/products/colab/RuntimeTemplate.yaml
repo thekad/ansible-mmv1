@@ -2,8 +2,6 @@
 examples:
   - name: colab_runtime_template_basic
     exclude_test: true
-  - name: colab_runtime_template_no_name
-    _drop: true
   - name: colab_runtime_template_full
     exclude_docs: true
 properties:

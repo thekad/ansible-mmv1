@@ -1,13 +1,8 @@
 ---
-name: 'FeatureOnlineStore'
 examples:
-  - name: 'vertex_ai_featureonlinestore_with_optimized'
-    _drop: true
-  - name: 'vertex_ai_featureonlinestore_with_beta_fields_bigtable'
-    _drop: true
-  - name: 'vertex_ai_feature_online_store'
+  - name: vertex_ai_feature_online_store
     exclude_test: true
-  - name: 'vertex_ai_feature_online_store_test'
+  - name: vertex_ai_feature_online_store_test
     exclude_docs: true
 
 custom_code:

@@ -1,10 +1,8 @@
 ---
 examples:
-  - name: 'vertex_ai_feature_group_feature_with_version_column_name'
-    _drop: true
-  - name: 'vertex_ai_feature_group_feature'
+  - name: vertex_ai_feature_group_feature
     exclude_test: true
-  - name: 'vertex_ai_feature_group_feature_test'
+  - name: vertex_ai_feature_group_feature_test
     exclude_docs: true
 custom_code:
   custom_import: |
