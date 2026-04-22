@@ -3,11 +3,18 @@ examples:
   - name: cloudbuildv2_connection_gitlab
     exclude_test: true
 custom_code:
+  custom_import: |
+    import copy
   decoder: |
+    # when creating, object is empty except for "kind"
+    if len(obj) <= 1:
+      return obj
+
+    r = copy.deepcopy(obj)
+
     # disabled key doesn't seem to appear consistently for gitlab,
     # set to the default if missing
-    if "disabled" not in r.keys():
-      r["disabled"] = False
+    r["disabled"] = obj.get("disabled", False)
 
     # the github app id returned from the API shows as a string,
     # and the input is an int, when running comparison they will be
@@ -17,3 +24,5 @@ custom_code:
     # same for GHE
     if r.get("githubEnterpriseConfig") is not None:
       r["githubEnterpriseConfig"]["appInstallationId"] = int(obj["githubEnterpriseConfig"]["appInstallationId"])
+
+    return r
