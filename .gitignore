@@ -6,3 +6,6 @@ magic-modules/
 
 # don't add binary to git
 ansible-mmv1
+
+# don't add .env files
+.env
