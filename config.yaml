@@ -2,7 +2,8 @@
 git:
   url: https://github.com/GoogleCloudPlatform/magic-modules
   dir: magic-modules
-  rev: main
+  # TODO: change back to origin/main, ExcludeIdentityGeneration was added in the next commit
+  rev: e12d706eda51e09961e1cb8b5ce802cb5c78dbbd
   pull: false
 
 # Optional overlay (layout: products/, templates/) merged over base
@@ -12,8 +13,12 @@ git:
 overwrite: true
 
 # Products to generate
-# Each product can optionally specify a list of resources.
-# If resources is empty or omitted, all resources for that product will be generated.
+# Each product can optionally specify:
+#   resources   - list of resources to generate (omit or leave empty for all)
+#   skip-code   - ['*'] to skip code generation for every resource in the product,
+#                 or a list of resource names to skip selectively
+#   skip-tests  - ['*'] to skip test generation for every resource in the product,
+#                 or a list of resource names to skip selectively
 products:
   - name: alloydb
     resources:
@@ -22,6 +27,8 @@ products:
       - Instance
       - User
   - name: cloudbuildv2
+    skip-tests:
+      - '*'
     resources:
       - Connection
       - Repository
@@ -32,6 +39,8 @@ products:
       - RuntimeTemplate
       - Schedule
   - name: vertexai
+    # skip-tests:
+    #   - Endpoint   # or skip-tests: ['*'] for all resources
     resources:
       - Dataset
       - DeploymentResourcePool
