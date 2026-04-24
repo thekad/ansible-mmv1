@@ -64,7 +64,7 @@ func generateModule(templateData *tpl.TemplateData, job moduleJob, noFormat bool
 			}
 		}
 	}
-	if !noTests || len(m.Resource.Mmv1.Examples) > 0 {
+	if job.writeTests && len(m.Resource.Mmv1.Examples) > 0 {
 		log.Info().Msgf("generating tests for ansible module: %s", m)
 		if err := templateData.GenerateTests(m); err != nil {
 			return fmt.Errorf("generate tests for %s: %w", m.Name, err)
@@ -80,27 +80,25 @@ func generateModule(templateData *tpl.TemplateData, job moduleJob, noFormat bool
 	return nil
 }
 
-func generateModules(templateData *tpl.TemplateData, modules []*ansible.Module, noCode, noTests, noFormat bool) error {
-	if len(modules) == 0 {
+func generateModules(templateData *tpl.TemplateData, jobs []moduleJob, noFormat bool) error {
+	if len(jobs) == 0 {
 		return nil
 	}
-	workers := generationWorkerCount(len(modules))
-	jobs := make(chan *ansible.Module, len(modules))
-	for _, m := range modules {
-		jobs <- m
+	workers := generationWorkerCount(len(jobs))
+	queue := make(chan moduleJob, len(jobs))
+	for _, j := range jobs {
+		queue <- j
 	}
-	close(jobs)
+	close(queue)
 
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	var firstErr error
 
-	for w := 0; w < workers; w++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for m := range jobs {
-				if err := generateModule(templateData, m, noCode, noTests, noFormat); err != nil {
+	for range workers {
+		wg.Go(func() {
+			for j := range queue {
+				if err := generateModule(templateData, j, noFormat); err != nil {
 					mu.Lock()
 					if firstErr == nil {
 						firstErr = err
@@ -108,16 +106,49 @@ func generateModules(templateData *tpl.TemplateData, modules []*ansible.Module, 
 					mu.Unlock()
 				}
 			}
-		}()
+		})
 	}
 	wg.Wait()
 	return firstErr
 }
 
 // ProductConfig holds per-product configuration with optional resource list
+// and optional skip directives for code and test generation.
+//
+// skip-code and skip-tests accept a list of resource names to skip, or ['*']
+// to skip all resources in the product:
+//
+//	products:
+//	  - name: cloudbuildv2
+//	    skip-tests: ['*']        # skip tests for every resource in this product
+//	  - name: vertexai
+//	    skip-tests:              # skip tests only for the listed resources
+//	      - Endpoint
+//	    skip-code:               # skip code only for the listed resources
+//	      - SomeResource
 type ProductConfig struct {
 	Name      string   `mapstructure:"name"`
 	Resources []string `mapstructure:"resources"`
+	SkipCode  []string `mapstructure:"skip-code"`
+	SkipTests []string `mapstructure:"skip-tests"`
+}
+
+// skipContains reports whether resource (case-insensitive) is covered by the
+// given skip list. ['*'] means all resources are skipped.
+func skipContains(skip []string, resource string) bool {
+	if slices.Contains(skip, "*") {
+		return true
+	}
+	return slices.Contains(skip, strings.ToLower(resource))
+}
+
+// mustBindPFlag binds a cobra flag to a viper key, panicking if it fails.
+// Failure is only possible for programming errors (wrong flag name), so a
+// panic at startup is the appropriate response.
+func mustBindPFlag(viperKey, flagName string) {
+	if err := viper.BindPFlag(viperKey, rootCmd.Flags().Lookup(flagName)); err != nil {
+		panic(fmt.Sprintf("failed to bind flag --%s to viper key %q: %v", flagName, viperKey, err))
+	}
 }
 
 // rootCmd represents the base command when called without any subcommands
@@ -164,14 +195,13 @@ func init() {
 	// Config file flag
 	rootCmd.Flags().StringP("config", "C", "config.yaml", "path to config file")
 
-	// Bind flags to viper (only for options that can come from config file)
-	viper.BindPFlag("git.url", rootCmd.Flags().Lookup("git-url"))
-	viper.BindPFlag("git.dir", rootCmd.Flags().Lookup("git-dir"))
-	viper.BindPFlag("git.rev", rootCmd.Flags().Lookup("git-rev"))
-	viper.BindPFlag("git.pull", rootCmd.Flags().Lookup("git-pull"))
-	viper.BindPFlag("overlay", rootCmd.Flags().Lookup("overlay"))
-	viper.BindPFlag("overwrite", rootCmd.Flags().Lookup("overwrite"))
-	// Note: output, min-version, no-code, no-tests, no-format are flag-only (not in config file)
+	// Bind flags to viper (only for options that can come from config file).
+	mustBindPFlag("git.url", "git-url")
+	mustBindPFlag("git.dir", "git-dir")
+	mustBindPFlag("git.rev", "git-rev")
+	mustBindPFlag("git.pull", "git-pull")
+	mustBindPFlag("overlay", "overlay")
+	mustBindPFlag("overwrite", "overwrite")
 }
 
 func initLogging(cmd *cobra.Command) {
@@ -353,6 +383,14 @@ func runGenerate(cmd *cobra.Command, args []string) {
 	configProducts := getConfigProducts()
 	configProductResources := buildProductResourceMap(configProducts)
 	configProductNames := getProductNames(configProducts)
+	// Index per-product skip lists by lowercase product name for O(1) lookup.
+	configSkipCode := make(map[string][]string, len(configProducts))
+	configSkipTests := make(map[string][]string, len(configProducts))
+	for _, p := range configProducts {
+		key := strings.ToLower(p.Name)
+		configSkipCode[key] = p.SkipCode
+		configSkipTests[key] = p.SkipTests
+	}
 	cliProducts, cliResources := getCLIProductResourceFilters(cmd)
 
 	absGitDir, _ := filepath.Abs(gitDir)
@@ -395,7 +433,7 @@ func runGenerate(cmd *cobra.Command, args []string) {
 	templateData := tpl.NewTemplateData(ansibleTemplateDir, output, overwrite)
 	log.Debug().Msgf("template data: %v", templateData)
 
-	modulesToGenerate := []*ansible.Module{}
+	jobsToRun := []moduleJob{}
 	minVersionObj := &mmv1product.Version{Name: minVersion}
 
 	for _, pKey := range api.ProductKeys(loader) {
@@ -436,10 +474,27 @@ func runGenerate(cmd *cobra.Command, args []string) {
 
 			module := ansible.NewFromResource(r)
 			module.MinVersion = r.MinVersion()
-			modulesToGenerate = append(modulesToGenerate, module)
+
+			// Resolve per-resource skip flags.
+			// CLI --no-code / --no-tests act as a global override; config-level
+			// skip-code / skip-tests refine at the product or resource level.
+			writeCode := !noCode && !skipContains(configSkipCode[short], mmRes.Name)
+			writeTests := !noTests && !skipContains(configSkipTests[short], mmRes.Name)
+			if !writeCode {
+				log.Debug().Msgf("skipping code generation for %s.%s", short, mmRes.Name)
+			}
+			if !writeTests {
+				log.Debug().Msgf("skipping test generation for %s.%s", short, mmRes.Name)
+			}
+
+			jobsToRun = append(jobsToRun, moduleJob{
+				module:     module,
+				writeCode:  writeCode,
+				writeTests: writeTests,
+			})
 		}
 	}
-	if err := generateModules(templateData, modulesToGenerate, noCode, noTests, noFormat); err != nil {
+	if err := generateModules(templateData, jobsToRun, noFormat); err != nil {
 		log.Fatal().Err(err).Msg("module generation failed")
 	}
 }
