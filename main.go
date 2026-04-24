@@ -35,21 +35,23 @@ func generationWorkerCount(numModules int) int {
 	if numModules <= 1 {
 		return 1
 	}
-	n := runtime.NumCPU()
-	if n < 2 {
-		n = 2
-	}
-	if n > 16 {
-		n = 16
-	}
-	if n > numModules {
-		n = numModules
-	}
+	n := max(runtime.NumCPU(), 2)
+	n = min(n, 16)
+	n = min(n, numModules)
 	return n
 }
 
-func generateModule(templateData *tpl.TemplateData, m *ansible.Module, noCode, noTests, noFormat bool) error {
-	if !noCode {
+// moduleJob bundles a module with its per-resource generation flags so that
+// worker goroutines do not need to access shared state.
+type moduleJob struct {
+	module     *ansible.Module
+	writeCode  bool
+	writeTests bool
+}
+
+func generateModule(templateData *tpl.TemplateData, job moduleJob, noFormat bool) error {
+	m := job.module
+	if job.writeCode {
 		log.Info().Msgf("generating code for ansible module: %s", m)
 		if err := templateData.GenerateCode(m); err != nil {
 			return fmt.Errorf("generate code for %s: %w", m.Name, err)
