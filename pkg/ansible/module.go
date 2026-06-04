@@ -22,7 +22,7 @@ type Module struct {
 	Returns          *ReturnBlock
 	Examples         *Examples
 	ArgumentSpec     *ArgumentSpec
-	OperationConfigs map[string]*OperationConfig
+	OperationConfigs *OperationConfigs
 	Dependency       *Dependency
 }
 
@@ -31,10 +31,11 @@ type Module struct {
 // returns, and operation configs from the Mmv1 API Resource object, and then
 // build the rest of the members based off the options.
 func NewFromResource(resource *api.Resource) *Module {
+	options := NewOptionsFromMmv1(resource.Mmv1)
 	m := &Module{
 		Name:             resource.AnsibleName(),
 		Resource:         resource,
-		Options:          NewOptionsFromMmv1(resource.Mmv1),
+		Options:          options,
 		Examples:         NewExamplesFromMmv1(resource.Mmv1),
 		Returns:          NewReturnBlockFromMmv1(resource.Mmv1),
 		OperationConfigs: NewOperationConfigsFromMmv1(resource.Mmv1),
@@ -43,17 +44,20 @@ func NewFromResource(resource *api.Resource) *Module {
 
 	// filter the options to only include input options
 	inputOptions := make(map[string]*Option, 0)
-	for _, option := range m.Options {
+	for _, option := range options {
 		if option.Mmv1 != nil {
 			if option.Mmv1.Output {
 				continue
 			}
-			if option.ClientSide {
-				continue
-			}
+			/*
+				if option.ClientSide && !option.Virtual {
+					continue
+				}
+			*/
 		}
 		inputOptions[option.AnsibleName()] = option
 	}
+	log.Debug().Msgf("input options %v", inputOptions)
 
 	log.Info().Msgf("creating documentation for %s", resource.AnsibleName())
 	m.Documentation = NewDocumentationFromOptions(resource, inputOptions)

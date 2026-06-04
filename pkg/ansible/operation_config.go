@@ -10,6 +10,12 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+type OperationConfigs struct {
+	BaseUri       string
+	CollectionUrl string
+	Configs       map[string]*OperationConfig
+}
+
 type OperationConfig struct {
 	UriTemplate      string `json:"uri"`
 	AsyncUriTemplate string `json:"async_uri"`
@@ -17,7 +23,16 @@ type OperationConfig struct {
 	TimeoutMinutes   int    `json:"timeout_minutes"`
 }
 
-func NewOperationConfigsFromMmv1(mmv1 *mmv1api.Resource) map[string]*OperationConfig {
+func escapeCurlyBraces(s string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(s, "{{", "{"), "}}", "}")
+}
+
+func NewOperationConfigsFromMmv1(mmv1 *mmv1api.Resource) *OperationConfigs {
+	opConfig := &OperationConfigs{
+		BaseUri:       escapeCurlyBraces(mmv1.BaseUrl),
+		CollectionUrl: escapeCurlyBraces(mmv1.CollectionUrl()),
+	}
+
 	ops := map[string]*OperationConfig{}
 	timeouts := mmv1.GetTimeouts()
 	defaultVerbs := map[string]string{
@@ -35,15 +50,6 @@ func NewOperationConfigsFromMmv1(mmv1 *mmv1api.Resource) map[string]*OperationCo
 		return defaultVerbs[operation]
 	}
 
-	escapeCurlyBraces := func(s string) string {
-		return strings.ReplaceAll(strings.ReplaceAll(s, "{{", "{"), "}}", "}")
-	}
-
-	ops["base_url"] = &OperationConfig{
-		UriTemplate:    escapeCurlyBraces(mmv1.BaseUrl),
-		Verb:           "GET",
-		TimeoutMinutes: 0,
-	}
 	ops["read"] = &OperationConfig{
 		UriTemplate:      escapeCurlyBraces(mmv1.SelfLinkUri()),
 		Verb:             getVerb(mmv1.ReadVerb, "read"),
@@ -80,7 +86,9 @@ func NewOperationConfigsFromMmv1(mmv1 *mmv1api.Resource) map[string]*OperationCo
 		}
 	}
 
-	log.Debug().Msgf("operation configs: %v", ops)
+	opConfig.Configs = ops
 
-	return ops
+	log.Debug().Msgf("operation configs: %v", opConfig)
+
+	return opConfig
 }

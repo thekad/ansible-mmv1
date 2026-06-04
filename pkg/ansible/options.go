@@ -271,6 +271,7 @@ func NewOptionsFromMmv1(resource *mmv1api.Resource) map[string]*Option {
 	options := convertPropertiesToOptions(resource.AllUserProperties(), nil, false)
 	virtualOptions := convertPropertiesToOptions(resource.UserVirtualFields(), nil, true)
 	for name, option := range virtualOptions {
+		log.Debug().Str("virtualField", name).Msgf("%v", option)
 		options[name] = option
 	}
 
