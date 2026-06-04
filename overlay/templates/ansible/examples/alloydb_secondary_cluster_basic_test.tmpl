@@ -38,7 +38,7 @@
           - _primary.clusterType == "PRIMARY"
           - _secondary.changed == true
           - _secondary.clusterType == "SECONDARY"
-          - _secondary.secondaryConfig.primaryClusterName == _primary.name
+          - _secondary.secondaryConfig.primaryClusterName.split('/')[-1] == _primary.name.split('/')[-1]
 
   always:
     - name: Delete secondary cluster

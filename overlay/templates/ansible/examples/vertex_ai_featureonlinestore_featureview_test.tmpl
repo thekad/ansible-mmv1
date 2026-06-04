@@ -37,7 +37,7 @@
     - name: Create Feature Online Store
       google.cloud.gcp_vertexai_feature_online_store:
         state: present
-        name: "{{`{{ resource_name | regex_replace('-', '_') }}`}}"
+        name: "{{`{{ resource_name | regex_replace('-', '_') }}`}}_fosfv"
         bigtable:
           auto_scaling:
             min_node_count: 1
@@ -52,7 +52,7 @@
       google.cloud.gcp_vertexai_feature_online_store_featureview:
         state: present
         name: "{{`{{ resource_name | regex_replace('-', '_') }}`}}"
-        feature_online_store: "{{`{{ resource_name | regex_replace('-', '_') }}`}}"
+        feature_online_store: "{{`{{ resource_name | regex_replace('-', '_') }}`}}_fosfv"
         sync_config:
           cron: "0 0 * * *"
         big_query_source:
@@ -68,7 +68,7 @@
       google.cloud.gcp_vertexai_feature_online_store_featureview:
         state: absent
         name: "{{`{{ resource_name | regex_replace('-', '_') }}`}}"
-        feature_online_store: "{{`{{ resource_name | regex_replace('-', '_') }}`}}"
+        feature_online_store: "{{`{{ resource_name | regex_replace('-', '_') }}`}}_fosfv"
         sync_config:
           cron: "0 0 * * *"
         big_query_source:
@@ -84,7 +84,7 @@
     - name: Delete Feature Online Store
       google.cloud.gcp_vertexai_feature_online_store:
         state: absent
-        name: "{{`{{ resource_name | regex_replace('-', '_') }}`}}"
+        name: "{{`{{ resource_name | regex_replace('-', '_') }}`}}_fosfv"
         bigtable:
           auto_scaling:
             min_node_count: 1
