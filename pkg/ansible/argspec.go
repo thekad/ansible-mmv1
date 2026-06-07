@@ -224,13 +224,13 @@ func (as *ArgumentSpec) writeNestedOptions(builder *strings.Builder, options map
 func (as *ArgumentSpec) writeArgumentConstraints(builder *strings.Builder, option *Option, indent string) {
 	if option.Dependency != nil {
 		if len(option.Dependency.MutuallyExclusive) > 0 {
-			builder.WriteString(fmt.Sprintf("%smutually_exclusive=%s,\n", indent, pythonListOfLists(option.Dependency.MutuallyExclusive)))
+			builder.WriteString(fmt.Sprintf("%smutually_exclusive=%s,\n", indent, pythonListOfTuples(option.Dependency.MutuallyExclusive)))
 		}
 		if len(option.Dependency.RequiredTogether) > 0 {
 			builder.WriteString(fmt.Sprintf("%srequired_together=%s,\n", indent, pythonListOfLists(option.Dependency.RequiredTogether)))
 		}
 		if len(option.Dependency.RequiredOneOf) > 0 {
-			builder.WriteString(fmt.Sprintf("%srequired_one_of=%s,\n", indent, pythonListOfLists(option.Dependency.RequiredOneOf)))
+			builder.WriteString(fmt.Sprintf("%srequired_one_of=%s,\n", indent, pythonListOfTuples(option.Dependency.RequiredOneOf)))
 		}
 	}
 }
@@ -243,13 +243,13 @@ func (as *ArgumentSpec) buildModuleConstraints() string {
 		return ""
 	}
 	if len(as.Dependencies.MutuallyExclusive) > 0 {
-		constraints = append(constraints, fmt.Sprintf("mutually_exclusive=%s", pythonListOfLists(as.Dependencies.MutuallyExclusive)))
+		constraints = append(constraints, fmt.Sprintf("mutually_exclusive=%s", pythonListOfTuples(as.Dependencies.MutuallyExclusive)))
 	}
 	if len(as.Dependencies.RequiredTogether) > 0 {
 		constraints = append(constraints, fmt.Sprintf("required_together=%s", pythonListOfLists(as.Dependencies.RequiredTogether)))
 	}
 	if len(as.Dependencies.RequiredOneOf) > 0 {
-		constraints = append(constraints, fmt.Sprintf("required_one_of=%s", pythonListOfLists(as.Dependencies.RequiredOneOf)))
+		constraints = append(constraints, fmt.Sprintf("required_one_of=%s", pythonListOfTuples(as.Dependencies.RequiredOneOf)))
 	}
 	if len(constraints) == 0 {
 		return ""
@@ -344,6 +344,17 @@ func pythonList(items []string) string {
 	return fmt.Sprintf("[%s]", strings.Join(quoted, ", "))
 }
 
+func pythonTuple(items []string) string {
+	if len(items) == 0 {
+		return "()"
+	}
+	var quoted []string
+	for _, item := range items {
+		quoted = append(quoted, pythonQuote(item))
+	}
+	return fmt.Sprintf("(%s)", strings.Join(quoted, ", "))
+}
+
 // pythonListOfLists converts a slice of string slices to a Python list of lists
 func pythonListOfLists(items [][]string) string {
 	if len(items) == 0 {
@@ -353,6 +364,19 @@ func pythonListOfLists(items [][]string) string {
 	var lists []string
 	for _, subList := range items {
 		lists = append(lists, pythonList(subList))
+	}
+	return fmt.Sprintf("[%s]", strings.Join(lists, ", "))
+}
+
+// pythonListOfTuples converts a slice of string slices to a Python list of tuples
+func pythonListOfTuples(items [][]string) string {
+	if len(items) == 0 {
+		return "[]"
+	}
+
+	var lists []string
+	for _, subList := range items {
+		lists = append(lists, pythonTuple(subList))
 	}
 	return fmt.Sprintf("[%s]", strings.Join(lists, ", "))
 }
