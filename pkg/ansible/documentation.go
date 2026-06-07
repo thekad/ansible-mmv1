@@ -11,12 +11,6 @@ import (
 	"github.com/thekad/ansible-mmv1/pkg/api"
 )
 
-var STANDARD_MODULE_REQUIREMENTS = []string{
-	"python >= 3.8",
-	"requests >= 2.18.4",
-	"google-auth >= 2.25.1",
-}
-
 // Documentation represents the complete module specification
 type Documentation struct {
 	// Module name - must match the filename without .py extension
@@ -63,7 +57,7 @@ func NewDocumentationFromOptions(resource *api.Resource, options map[string]*Opt
 		ShortDescription: fmt.Sprintf("Creates a GCP %s.%s resource", resource.Parent.Mmv1.Name, resource.Mmv1.Name),
 		Description:      cleanModuleDescription(resource.Mmv1.Description),
 		Options:          options,
-		Requirements:     STANDARD_MODULE_REQUIREMENTS,
+		Requirements:     standardModuleRequirements,
 		Notes:            resourceNotes,
 		DocFragments:     docFragments,
 	}

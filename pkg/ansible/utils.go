@@ -14,8 +14,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const MAX_DESCRIPTION_LENGTH = 140
-
 // parsePropertyDescription converts API property description to Ansible format i.e. multi-line string to list of strings
 func parsePropertyDescription(property *mmv1api.Type) []string {
 	description := property.Description
@@ -36,9 +34,7 @@ func parsePropertyDescription(property *mmv1api.Type) []string {
 	for _, sentence := range sentences {
 		trimmed := strings.TrimSpace(sentence)
 		// skip TF-only doc strings
-		if strings.Contains(sentence, "effective_annotations") ||
-			strings.Contains(sentence, "effective_labels") ||
-			strings.Contains(sentence, "terraform_labels") {
+		if descriptionMentionsTFOnlyProperty(sentence) {
 			continue
 		}
 		if trimmed != "" {

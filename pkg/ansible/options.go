@@ -299,25 +299,7 @@ func looksLikeSensitiveField(name string) bool {
 	// Convert to lowercase for case-insensitive matching
 	lowerName := strings.ToLower(name)
 
-	// Common patterns for sensitive fields
-	sensitivePatterns := []string{
-		"password",
-		"passwd",
-		"secret",
-		"token",
-		"key",
-		"apikey",
-		"api_key",
-		"privatekey",
-		"private_key",
-		"credential",
-		"auth",
-		"authorization",
-		"certificate",
-		"cert",
-	}
-
-	for _, pattern := range sensitivePatterns {
+	for _, pattern := range sensitiveFieldPatterns {
 		if strings.Contains(lowerName, pattern) {
 			return true
 		}
