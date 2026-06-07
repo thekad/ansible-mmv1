@@ -18,10 +18,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// AnsibleExamplesDir is the path example templates live, mirroring
-// templates/terraform/examples
-const AnsibleExamplesDir = "templates/ansible/examples"
-
 // ansibleExampleRedirectFS wraps the merged mmv1 FS so that reads of Terraform example
 // templates (templates/terraform/examples/<name>.tf.tmpl) are satisfied from Ansible
 // examples (templates/ansible/examples/<name>.tmpl) when present.
@@ -85,23 +81,22 @@ func (a *ansibleExampleRedirectFS) ReadFile(name string) ([]byte, error) {
 }
 
 func isAnsibleExampleTemplatePath(name string) bool {
-	return strings.HasPrefix(name, AnsibleExamplesDir+"/") && strings.HasSuffix(name, ".tmpl")
+	return strings.HasPrefix(name, AnsibleExamplesDir+"/") && strings.HasSuffix(name, ansibleExampleSuffix)
 }
 
 func terraformExamplesToAnsible(terraformPath string) (ansiblePath string, ok bool) {
-	const prefix = "templates/terraform/examples/"
-	if !strings.HasPrefix(terraformPath, prefix) {
+	if !strings.HasPrefix(terraformPath, terraformExamplesDir) {
 		return "", false
 	}
-	rest := strings.TrimPrefix(terraformPath, prefix)
-	if !strings.HasSuffix(rest, ".tf.tmpl") {
+	rest := strings.TrimPrefix(terraformPath, terraformExamplesDir)
+	if !strings.HasSuffix(rest, terraformExampleSuffix) {
 		return "", false
 	}
-	stem := strings.TrimSuffix(rest, ".tf.tmpl")
+	stem := strings.TrimSuffix(rest, terraformExampleSuffix)
 	if stem == "" {
 		return "", false
 	}
-	return path.Join(AnsibleExamplesDir, stem+".tmpl"), true
+	return path.Join(AnsibleExamplesDir, stem+ansibleExampleSuffix), true
 }
 
 // LoadProducts loads Magic Modules products. If onlyProductShortNames is non-empty, only
@@ -121,7 +116,7 @@ func LoadProducts(mmv1Root, overlayDir, version string, productFilter []string) 
 		BaseDirectory:     mmv1Root,
 		OverrideDirectory: overlayDir,
 		Sysfs:             ansibleSysFS,
-		CompilerTarget:    "ansible",
+		CompilerTarget:    compilerTargetAnsible,
 	})
 
 	if len(productFilter) == 0 {
@@ -139,7 +134,7 @@ func LoadProducts(mmv1Root, overlayDir, version string, productFilter []string) 
 			}
 			seen[short] = struct{}{}
 
-			key := "products/" + short
+			key := productsDirPrefix + short
 			p, err := l.LoadProduct(key)
 			if err != nil {
 				var verr *mmv1loader.ErrProductVersionNotFound
@@ -205,7 +200,7 @@ func WrapResource(mmRes *mmv1api.Resource, parent *Product, mmRoot string) *Reso
 // (merged overlay + mmv1 base FS) and re-runs upstream LoadHCLText so TestHCLText reflects Ansible templates.
 func ReloadAnsibleExamples(mmRes *mmv1api.Resource, sysfs fs.FS) error {
 	for _, ex := range mmRes.Examples {
-		ex.ConfigPath = path.Join(AnsibleExamplesDir, ex.Name+".tmpl")
+		ex.ConfigPath = path.Join(AnsibleExamplesDir, ex.Name+ansibleExampleSuffix)
 		if err := ex.LoadHCLText(sysfs); err != nil {
 			return fmt.Errorf("example %q: %w", ex.Name, err)
 		}

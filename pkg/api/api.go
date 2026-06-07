@@ -39,7 +39,7 @@ func (r *Resource) AnsibleName() string {
 // MinVersion will return the minimum version supported by the given resource
 func (r *Resource) MinVersion() string {
 	if r.Mmv1.MinVersion == "" {
-		return "ga"
+		return defaultResourceMinVersion
 	}
 	return r.Mmv1.MinVersion
 }
