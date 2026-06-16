@@ -33,20 +33,20 @@ properties:
     required: false
 custom_code:
   encoder: |
-    tier = obj.get("ragManagedDbConfig")
+    tier = request.get("ragManagedDbConfig")
     if getattr(self, "_state", "present") == "absent":
         tier = "unprovisioned"
     return {
-        "name": "projects/{project}/locations/{region}/ragEngineConfig".format(**self.module.params),
+        "name": "projects/{project}/locations/{region}/ragEngineConfig".format(**self.url_params),
         "ragManagedDbConfig": {
             tier.lower(): {}
         }
     }
 
   decoder: |
-    tier = next(iter(obj["ragManagedDbConfig"]))
+    tier = next(iter(response["ragManagedDbConfig"]))
     return {
-        "name": obj.get("name"),
+        "name": response.get("name"),
         "ragManagedDbConfig": {
             tier.lower(): {}
         }

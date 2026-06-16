@@ -18,7 +18,9 @@ properties:
 custom_code:
   pre_read: |
     # if this comes from a registered variable, strip down to base name
-    params["name"] = params["name"].split("/")[-1]
+    request["name"] = request["name"].split("/")[-1]
+
   pre_delete: |
-    if params.get("force_destroy"):
-        delete_uri += "?force=true"
+    if request.get("force_destroy"):
+        delete_link = resource.build_link("delete") + "?force=true"
+

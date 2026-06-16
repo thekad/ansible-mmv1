@@ -24,59 +24,61 @@ parameters:
     required: true
 custom_code:
   pre_read: |
-    def change_state(state_link, async_state_link, resource, retries, verb):
+    def change_state(state_link, async_uri, resource, retries, verb):
         """Change the state of the runtime"""
 
         resource._state = "update"
         async_state_func = getattr(resource, "post_async")
-        return async_state_func(state_link + f":{verb}", async_link=async_state_link, retries=retries)
+        return async_state_func(state_link + f":{verb}", async_uri=async_uri, retries=retries)
+
   custom_import: |
     import copy
     import time
+
   encoder: |
     if self._state in ["absent", "update"]:  # no encoding when making a DELETE or POST request
         return {}
-    self.debug(func="encoder", encoded=False, obj=obj)
+    self.debug(func="encoder", encoded=False, request=request)
     r = {}
-    tmp = copy.deepcopy(obj)
+    tmp = copy.deepcopy(request)
     tplRef = tmp.pop("notebookRuntimeTemplateRef", None)
     if tplRef:
         r["notebookRuntimeTemplate"] = tplRef["notebookRuntimeTemplate"]  # sub-field is required
     r["notebookRuntime"] = tmp
-    self.debug(func="encoder", encoded=True, obj=r)
+    self.debug(func="encoder", encoded=True, request=r)
 
     return r
+
   post_create: |
     # stop runtime if desired_state is STOPPED
-    if params.get("desired_state") == "STOPPED":
-        gcp.debug(module, msg="Changing runtime state to STOPPED")
-        state_link = build_link(params, op_configs.update.uri)
-        state_async_uri = op_configs.update.async_uri
-        async_state_link = build_link(params, "") + state_async_uri
-        new_obj = change_state(state_link, async_state_link, resource, op_configs.update.timeout, "stop")
+    if module.params.get("desired_state") == "STOPPED":
+        gcp_v2.debug(module, msg="Changing runtime state to STOPPED")
+        state_link = resource.build_link("update")
+        new_obj = change_state(state_link, op_configs.update.async_uri, resource, op_configs.update.timeout, "stop")
     # wait for runtime to reach desired state
     while True:
-        new_obj = resource.get(read_url)
-        gcp.debug(module, polling=new_obj, action="post_create")
-        if new_obj.get("runtimeState") == params.get("desired_state"):
+        new_obj = resource.get(read_link)
+        gcp_v2.debug(module, polling=new_obj, action="post_create")
+        if new_obj.get("runtimeState") == module.params.get("desired_state"):
             break
         time.sleep(1)
+
   custom_update: |
-    desired_state = params.get("desired_state")
-    state_link = build_link(params, update_uri)
-    async_state_link = build_link(params, "") + update_async_uri
+    desired_state = module.params.get("desired_state")
+    state_link = resource.build_link("update")
     if desired_state != existing_obj.get("runtimeState"):
-        gcp.debug(module, msg=f"Changing runtime state to {desired_state}")
-        new_obj = change_state(state_link, async_state_link, resource, op_configs.update.timeout, "start" if desired_state == "RUNNING" else "stop")
+        gcp_v2.debug(module, msg=f"Changing runtime state to {desired_state}")
+        new_obj = change_state(state_link, op_configs.update.async_uri, resource, op_configs.update.timeout, "start" if desired_state == "RUNNING" else "stop")
         # wait for runtime to reach desired state
         while True:
-            new_obj = resource.get(read_url)
-            gcp.debug(module, polling=new_obj, action="custom_update")
-            if new_obj.get("runtimeState") == params.get("desired_state"):
+            new_obj = resource.get(read_link)
+            gcp_v2.debug(module, polling=new_obj, action="custom_update")
+            if new_obj.get("runtimeState") == module.params.get("desired_state"):
                 break
             time.sleep(1)
-    auto_upgrade = params.get("auto_upgrade", False)
+    auto_upgrade = module.params.get("auto_upgrade", False)
     is_upgradable = existing_obj.get("isUpgradable", False)
     if auto_upgrade and is_upgradable:
-        gcp.debug(module, msg="Upgrading runtime")
-        new_obj = change_state(state_link, async_state_link, resource, op_configs.update.timeout, "upgrade")
+        gcp_v2.debug(module, msg="Upgrading runtime")
+        new_obj = change_state(state_link, op_configs.update.async_uri, resource, op_configs.update.timeout, "upgrade")
+

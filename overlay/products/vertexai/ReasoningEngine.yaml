@@ -10,23 +10,23 @@ examples:
     exclude_docs: true
 custom_code:
   pre_read: |
-    # for this module, we're hitting the list endpoint and filtering on display name
-    read_uri = op_configs.base_url.uri + "?filter=displayName=" + params.get("display_name")
+    # for this module, we're hitting the list endpoint and filtering on display name and rebuild the link
+    read_link = resource.build_link("list") + "?filter=displayName=" + request.get("display_name")
 
   post_read: |
-    if not gcp.empty(existing_obj):
+    if not gcp_v2.empty(existing_obj):
         for rengine in existing_obj.get("reasoningEngines", []):
-            if rengine.get("displayName") == params.get("display_name"):
+            if rengine.get("displayName") == request.get("display_name"):
                 existing_obj = rengine
                 break
 
   pre_update: |
     # need to set to the required parameter "name" to the existing resource name
-    params["name"] = existing_obj["name"].split("/")[-1]
+    resource.url_params["name"] = existing_obj["name"].split("/")[-1]
 
     # finally, need to build the updateMask for the fields in our module
-    update_uri += "?updateMask=" + ",".join(resource.dot_fields())
+    update_link = resource.build_link("update") + "?updateMask=" + ",".join(resource.dot_fields())
 
   pre_delete: |
     # need to set to the required parameter "name" to the existing resource name
-    params["name"] = existing_obj["name"].split("/")[-1]
+    resource.url_params["name"] = existing_obj["name"].split("/")[-1]

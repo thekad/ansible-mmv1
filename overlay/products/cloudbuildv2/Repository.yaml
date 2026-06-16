@@ -5,20 +5,22 @@ create_url: "{{parent_connection}}/repositories?repositoryId={{name}}"
 custom_code:
   custom_import: |
     import copy
-  encoder: _drop
-  decoder: |
-    # when creating, object is empty except for "kind"
-    if len(obj) <= 1:
-      return obj
 
-    r = copy.deepcopy(obj)
+  decoder: |
+    # when creating, response is empty except for "kind"
+    if len(response) <= 1:
+      return response
+
+    r = copy.deepcopy(response)
 
     # the name returned from the API is FQDN, but the name
     # we send is just the "base name", convert it back to
     # what we need but maintain the parent connection ref
-    if obj.get("name", "") != "":
-      parts = obj["name"].split("/")
+    if response.get("name", "") != "":
+      parts = response["name"].split("/")
       r["parentConnection"] = "/".join(parts[:-2])
       r["name"] = parts[-1]
 
     return r
+
+  encoder: _drop

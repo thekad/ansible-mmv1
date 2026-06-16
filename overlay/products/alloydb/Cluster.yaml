@@ -7,6 +7,7 @@ custom_code:
 
     # for secondary clusters, the creation link changes slightly
     if cluster_type == "SECONDARY":
+        create_link = resource.build_link("create")
         create_link = create_link.replace("clusters?clusterId", "clusters:createsecondary?cluster_id")
 
     # for primary clusters, require an initial_user
@@ -14,6 +15,7 @@ custom_code:
         initial_user = module.params.get("initial_user")
         if not initial_user:
             module.fail_json(msg="An initial_user is required when cluster_type=PRIMARY")
+
   pre_update: |
     secondary_config = module.params.get("secondary_config")
     cluster_type = module.params.get("cluster_type")
@@ -32,9 +34,9 @@ custom_code:
         module.fail_json(msg="Database migration not supported yet")
 
     # finally, need to build the updateMask for the fields in our module
-    update_link += "?updateMask=" + ",".join(resource.dot_fields())
-  pre_delete: |
-    # noop
+    update_link = resource.build_link("update") + "?updateMask=" + ",".join(resource.dot_fields())
+
+  pre_delete: _drop
 examples:
   - name: alloydb_cluster_basic
     exclude_test: true

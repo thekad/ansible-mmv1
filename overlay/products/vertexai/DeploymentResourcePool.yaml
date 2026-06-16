@@ -8,27 +8,33 @@ examples:
 custom_code:
   custom_import: |
     import copy
+
   pre_create: |
     resource._action = "create"
+
   pre_update: |
     resource._action = "update"
-    update_uri += "?updateMask=" + ",".join(resource.dot_fields())
+    update_link = resource.build_link("update") + "?updateMask=" + ",".join(resource.dot_fields())
+
   pre_delete: |
     resource._action = "delete"
+
   encoder: |
-    self.debug(func="encoder", obj=obj)
+    self.debug(func="encoder", request=request, encoded=False)
     action = getattr(self, "_action", "read")
     r = {}
     if action == "create":
         r = {
-          "deploymentResourcePool": copy.deepcopy(obj),
-          "deploymentResourcePoolId": obj["name"],
+          "deploymentResourcePool": copy.deepcopy(request),
+          "deploymentResourcePoolId": request["name"],
         }
     elif action == "read":
-        r = copy.deepcopy(obj)
+        r = copy.deepcopy(request)
     elif action == "update":
-        r = copy.deepcopy(obj)
+        r = copy.deepcopy(request)
     else:
         pass
+
+    self.debug(func="encoder", request=request, encoded=True)
 
     return r

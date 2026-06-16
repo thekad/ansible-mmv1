@@ -7,8 +7,10 @@ examples:
 custom_code:
   custom_import: |
     import copy
+
   decoder: |
-    r = copy.deepcopy(obj)
+    r = copy.deepcopy(response)
     if "name" in r:
         r["name"] = r.pop("name").split("/")[-1]
     return r
+

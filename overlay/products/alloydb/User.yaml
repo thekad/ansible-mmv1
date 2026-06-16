@@ -1,6 +1,5 @@
 custom_code:
-  custom_import: |
-    # noop
+  custom_import: _drop
 examples:
   - name: "alloydb_user_builtin"
     exclude_test: true
