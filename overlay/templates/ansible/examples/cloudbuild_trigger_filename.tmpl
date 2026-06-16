@@ -1,0 +1,12 @@
+- name: Trigger build with filename
+  google.cloud.gcp_cloudbuild_trigger_build:
+    name: "{{`{{ resource_name }}`}}"
+    state: present
+    location: us-central1
+    project: "{{`{{ gcp_project }}`}}"
+    auth_kind: "{{`{{ gcp_cred_kind }}`}}"
+    service_account_file: "{{`{{ gcp_cred_file }}`}}"
+    trigger_template:
+      repo_name: my-repo-name
+      branch_name: main
+    filename: my-cloudbuild.yml
