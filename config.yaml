@@ -26,6 +26,11 @@ products:
       - Cluster
       - Instance
       - User
+  - name: cloudbuild
+    skip-tests:
+      - '*'
+    resources:
+      - Trigger
   - name: cloudbuildv2
     skip-tests:
       - '*'
