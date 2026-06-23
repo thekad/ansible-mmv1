@@ -24,7 +24,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/thekad/ansible-mmv1/pkg/ansible"
 	"github.com/thekad/ansible-mmv1/pkg/api"
-	tpl "github.com/thekad/ansible-mmv1/pkg/template"
+	"github.com/thekad/ansible-mmv1/pkg/renderer"
 )
 
 const MMV1_REPO string = "https://github.com/GoogleCloudPlatform/magic-modules"
@@ -49,7 +49,7 @@ type moduleJob struct {
 	writeTests bool
 }
 
-func generateModule(templateData *tpl.TemplateData, job moduleJob, noFormat bool) error {
+func generateModule(templateData *renderer.TemplateData, job moduleJob, noFormat bool) error {
 	m := job.module
 	if job.writeCode {
 		log.Info().Msgf("generating code for ansible module: %s", m)
@@ -80,7 +80,7 @@ func generateModule(templateData *tpl.TemplateData, job moduleJob, noFormat bool
 	return nil
 }
 
-func generateModules(templateData *tpl.TemplateData, jobs []moduleJob, noFormat bool) error {
+func generateModules(templateData *renderer.TemplateData, jobs []moduleJob, noFormat bool) error {
 	if len(jobs) == 0 {
 		return nil
 	}
@@ -430,7 +430,7 @@ func runGenerate(cmd *cobra.Command, args []string) {
 	}
 
 	log.Info().Msgf("ansible specific templates: %s", ansibleTemplateDir)
-	templateData := tpl.NewTemplateData(ansibleTemplateDir, output, overwrite)
+	templateData := renderer.NewTemplateData(ansibleTemplateDir, output, overwrite)
 	log.Debug().Msgf("template data: %v", templateData)
 
 	jobsToRun := []moduleJob{}
