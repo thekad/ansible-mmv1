@@ -6,6 +6,8 @@ package ansible
 import (
 	"reflect"
 	"testing"
+
+	mmv1api "github.com/GoogleCloudPlatform/magic-modules/mmv1/api"
 )
 
 func TestGetMutuallyExclusive(t *testing.T) {
@@ -201,6 +203,368 @@ func TestGetRequiredTogether(t *testing.T) {
 
 		if !reflect.DeepEqual(got, want) {
 			t.Fatalf("getRequiredTogether() = %#v, want %#v", got, want)
+		}
+	})
+}
+
+func TestMapMmv1ToAnsible(t *testing.T) {
+	cases := []struct {
+		mmv1Type string
+		want     Type
+	}{
+		{"String", TypeStr},
+		{"Integer", TypeInt},
+		{"Boolean", TypeBool},
+		{"NestedObject", TypeDict},
+		{"KeyValueAnnotations", TypeDict},
+		{"KeyValueLabels", TypeDict},
+		{"KeyValuePairs", TypeDict},
+		{"KeyValueEffectiveLabels", TypeDict},
+		{"KeyValueTerraformLabels", TypeDict},
+		{"Array", TypeList},
+		{"Enum", TypeStr},
+		{"ResourceRef", TypeDict},
+		{"Fingerprint", TypeStr},
+		{"Time", TypeStr},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.mmv1Type+"_maps_to_"+string(tc.want), func(t *testing.T) {
+			prop := &mmv1api.Type{Type: tc.mmv1Type}
+			got := MapMmv1ToAnsible(prop)
+			if got != tc.want {
+				t.Fatalf("MapMmv1ToAnsible(%q) = %q, want %q", tc.mmv1Type, got, tc.want)
+			}
+		})
+	}
+
+	t.Run("nil property returns empty type", func(t *testing.T) {
+		if got := MapMmv1ToAnsible(nil); got != "" {
+			t.Fatalf("MapMmv1ToAnsible(nil) = %q, want empty string", got)
+		}
+	})
+
+	t.Run("unknown type falls back to str", func(t *testing.T) {
+		prop := &mmv1api.Type{Type: "SomeUnknownType"}
+		got := MapMmv1ToAnsible(prop)
+		if got != TypeStr {
+			t.Fatalf("MapMmv1ToAnsible(unknown) = %q, want %q", got, TypeStr)
+		}
+	})
+}
+
+func TestLooksLikeSensitiveField(t *testing.T) {
+	t.Run("returns false for empty name", func(t *testing.T) {
+		if looksLikeSensitiveField("") {
+			t.Fatal("looksLikeSensitiveField(\"\") = true, want false")
+		}
+	})
+
+	sensitive := []string{
+		"password", "userPassword", "myPasswd", "secretValue",
+		"accessToken", "apiKey", "api_key", "privateKey", "private_key",
+		"serviceCredential", "authHeader", "authorization",
+		"tlsCertificate", "clientCert",
+	}
+	for _, name := range sensitive {
+		name := name
+		t.Run(name+"_is_sensitive", func(t *testing.T) {
+			if !looksLikeSensitiveField(name) {
+				t.Fatalf("looksLikeSensitiveField(%q) = false, want true", name)
+			}
+		})
+	}
+
+	plain := []string{"displayName", "region", "project", "location", "description"}
+	for _, name := range plain {
+		name := name
+		t.Run(name+"_is_not_sensitive", func(t *testing.T) {
+			if looksLikeSensitiveField(name) {
+				t.Fatalf("looksLikeSensitiveField(%q) = true, want false", name)
+			}
+		})
+	}
+}
+
+func TestOptionOutputOnly(t *testing.T) {
+	t.Run("returns true when description contains 'output only'", func(t *testing.T) {
+		o := &Option{Description: []string{"This field is output only."}}
+		if !o.OutputOnly() {
+			t.Fatal("OutputOnly() = false, want true")
+		}
+	})
+
+	t.Run("returns true for uppercase OUTPUT ONLY", func(t *testing.T) {
+		o := &Option{Description: []string{"OUTPUT ONLY field."}}
+		if !o.OutputOnly() {
+			t.Fatal("OutputOnly() = false, want true for uppercase")
+		}
+	})
+
+	t.Run("returns true when phrase spans multiple description strings", func(t *testing.T) {
+		o := &Option{Description: []string{"This is an", "output only value."}}
+		if !o.OutputOnly() {
+			t.Fatal("OutputOnly() = false, want true across joined strings")
+		}
+	})
+
+	t.Run("returns false when description does not mention output only", func(t *testing.T) {
+		o := &Option{Description: []string{"The name of the resource."}}
+		if o.OutputOnly() {
+			t.Fatal("OutputOnly() = true, want false")
+		}
+	})
+
+	t.Run("returns false for empty description", func(t *testing.T) {
+		o := &Option{}
+		if o.OutputOnly() {
+			t.Fatal("OutputOnly() = true, want false for empty description")
+		}
+	})
+}
+
+func TestOptionAnsibleName(t *testing.T) {
+	cases := []struct {
+		name string
+		want string
+	}{
+		{"fooBar", "foo_bar"},
+		{"displayName", "display_name"},
+		{"project", "project"},
+		{"myLongFieldName", "my_long_field_name"},
+		{"alreadySnakeCase", "already_snake_case"},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name+"_becomes_"+tc.want, func(t *testing.T) {
+			o := &Option{Name: tc.name}
+			got := o.AnsibleName()
+			if got != tc.want {
+				t.Fatalf("AnsibleName() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestOptionApiName(t *testing.T) {
+	t.Run("returns Mmv1.ApiName when set", func(t *testing.T) {
+		o := &Option{Name: "myField", Mmv1: &mmv1api.Type{ApiName: "myApiField"}}
+		if got := o.ApiName(); got != "myApiField" {
+			t.Fatalf("ApiName() = %q, want %q", got, "myApiField")
+		}
+	})
+
+	t.Run("falls back to Name when Mmv1.ApiName is empty", func(t *testing.T) {
+		o := &Option{Name: "myField", Mmv1: &mmv1api.Type{ApiName: ""}}
+		if got := o.ApiName(); got != "myField" {
+			t.Fatalf("ApiName() = %q, want %q", got, "myField")
+		}
+	})
+
+	t.Run("falls back to Name when Mmv1 is nil", func(t *testing.T) {
+		o := &Option{Name: "myField", Mmv1: nil}
+		if got := o.ApiName(); got != "myField" {
+			t.Fatalf("ApiName() = %q, want %q", got, "myField")
+		}
+	})
+}
+
+func TestOptionIsList(t *testing.T) {
+	t.Run("returns true for TypeList", func(t *testing.T) {
+		o := &Option{Type: TypeList}
+		if !o.IsList() {
+			t.Fatal("IsList() = false, want true")
+		}
+	})
+
+	t.Run("returns false for TypeDict", func(t *testing.T) {
+		o := &Option{Type: TypeDict}
+		if o.IsList() {
+			t.Fatal("IsList() = true, want false")
+		}
+	})
+
+	t.Run("returns false for TypeStr", func(t *testing.T) {
+		o := &Option{Type: TypeStr}
+		if o.IsList() {
+			t.Fatal("IsList() = true, want false")
+		}
+	})
+}
+
+func TestOptionIsNestedObject(t *testing.T) {
+	t.Run("returns true when Mmv1.Type is NestedObject", func(t *testing.T) {
+		o := &Option{Mmv1: &mmv1api.Type{Type: "NestedObject"}}
+		if !o.IsNestedObject() {
+			t.Fatal("IsNestedObject() = false, want true")
+		}
+	})
+
+	t.Run("returns false when Mmv1.Type is String", func(t *testing.T) {
+		o := &Option{Mmv1: &mmv1api.Type{Type: "String"}}
+		if o.IsNestedObject() {
+			t.Fatal("IsNestedObject() = true, want false")
+		}
+	})
+}
+
+func TestOptionIsNestedList(t *testing.T) {
+	t.Run("returns true when TypeList with NestedObject elements", func(t *testing.T) {
+		o := &Option{
+			Type: TypeList,
+			Mmv1: &mmv1api.Type{
+				Type:     "Array",
+				ItemType: &mmv1api.Type{Type: "NestedObject"},
+			},
+		}
+		if !o.IsNestedList() {
+			t.Fatal("IsNestedList() = false, want true")
+		}
+	})
+
+	t.Run("returns false when TypeList with String elements", func(t *testing.T) {
+		o := &Option{
+			Type: TypeList,
+			Mmv1: &mmv1api.Type{
+				Type:     "Array",
+				ItemType: &mmv1api.Type{Type: "String"},
+			},
+		}
+		if o.IsNestedList() {
+			t.Fatal("IsNestedList() = true, want false for non-nested list")
+		}
+	})
+
+	t.Run("returns false when not a list", func(t *testing.T) {
+		o := &Option{
+			Type: TypeDict,
+			Mmv1: &mmv1api.Type{Type: "NestedObject"},
+		}
+		if o.IsNestedList() {
+			t.Fatal("IsNestedList() = true, want false for non-list type")
+		}
+	})
+}
+
+func TestOptionClassName(t *testing.T) {
+	t.Run("root-level nested object returns camelized name", func(t *testing.T) {
+		o := &Option{
+			Name:   "networkConfig",
+			Parent: nil,
+			Mmv1:   &mmv1api.Type{Type: "NestedObject"},
+		}
+		got := o.ClassName()
+		if got != "NetworkConfig" {
+			t.Fatalf("ClassName() = %q, want %q", got, "NetworkConfig")
+		}
+	})
+
+	t.Run("child nested object prepends parent class name", func(t *testing.T) {
+		parent := &Option{
+			Name: "networkConfig",
+			Mmv1: &mmv1api.Type{Type: "NestedObject"},
+		}
+		child := &Option{
+			Name:   "subnetConfig",
+			Parent: parent,
+			Mmv1:   &mmv1api.Type{Type: "NestedObject"},
+		}
+		got := child.ClassName()
+		if got != "NetworkConfigSubnetConfig" {
+			t.Fatalf("ClassName() = %q, want %q", got, "NetworkConfigSubnetConfig")
+		}
+	})
+
+	t.Run("nested list strips trailing s from name and prepends parent", func(t *testing.T) {
+		parent := &Option{
+			Name: "cluster",
+			Mmv1: &mmv1api.Type{Type: "NestedObject"},
+		}
+		child := &Option{
+			Name:   "nodes",
+			Parent: parent,
+			Type:   TypeList,
+			Mmv1: &mmv1api.Type{
+				Type:     "Array",
+				ItemType: &mmv1api.Type{Type: "NestedObject"},
+			},
+		}
+		got := child.ClassName()
+		if got != "ClusterNode" {
+			t.Fatalf("ClassName() = %q, want %q", got, "ClusterNode")
+		}
+	})
+
+	t.Run("root-level nested list returns camelized singular name", func(t *testing.T) {
+		o := &Option{
+			Name:   "items",
+			Parent: nil,
+			Type:   TypeList,
+			Mmv1: &mmv1api.Type{
+				Type:     "Array",
+				ItemType: &mmv1api.Type{Type: "NestedObject"},
+			},
+		}
+		// No parent → falls through to the plain Camelize branch
+		got := o.ClassName()
+		if got != "Items" {
+			t.Fatalf("ClassName() = %q, want %q", got, "Items")
+		}
+	})
+}
+
+func TestOptionSuboptions(t *testing.T) {
+	outputOpt := &Option{Name: "status", Output: true}
+	virtualOpt := &Option{Name: "virt", Virtual: true}
+	clientOpt := &Option{Name: "client", ClientSide: true}
+	urlOpt := &Option{Name: "urlOnly", Mmv1: &mmv1api.Type{UrlParamOnly: true}}
+	plainOpt := &Option{Name: "region"}
+	outputOnlyDescOpt := &Option{Name: "selfLink", Output: false, Description: []string{"output only link"}}
+
+	parent := &Option{
+		Name: "config",
+		Suboptions: map[string]*Option{
+			"status":   outputOpt,
+			"virt":     virtualOpt,
+			"client":   clientOpt,
+			"urlOnly":  urlOpt,
+			"region":   plainOpt,
+			"selfLink": outputOnlyDescOpt,
+		},
+	}
+
+	t.Run("OutputSuboptions returns only Output=true options", func(t *testing.T) {
+		got := parent.OutputSuboptions()
+		if _, ok := got["status"]; !ok {
+			t.Fatal("OutputSuboptions() missing 'status'")
+		}
+		if len(got) != 1 {
+			t.Fatalf("OutputSuboptions() = %d entries, want 1", len(got))
+		}
+	})
+
+	t.Run("InputSuboptions excludes Output, Virtual, ClientSide, UrlParamOnly", func(t *testing.T) {
+		got := parent.InputSuboptions()
+		for _, excluded := range []string{"status", "virt", "client", "urlOnly"} {
+			if _, ok := got[excluded]; ok {
+				t.Fatalf("InputSuboptions() contains %q, should be excluded", excluded)
+			}
+		}
+		if _, ok := got["region"]; !ok {
+			t.Fatal("InputSuboptions() missing 'region'")
+		}
+	})
+
+	t.Run("ArgumentSuboptions excludes Output=true and OutputOnly() description options", func(t *testing.T) {
+		got := parent.ArgumentSuboptions()
+		if _, ok := got["status"]; ok {
+			t.Fatal("ArgumentSuboptions() contains 'status' (Output=true), should be excluded")
+		}
+		if _, ok := got["selfLink"]; ok {
+			t.Fatal("ArgumentSuboptions() contains 'selfLink' (OutputOnly desc), should be excluded")
+		}
+		if _, ok := got["region"]; !ok {
+			t.Fatal("ArgumentSuboptions() missing 'region'")
 		}
 	})
 }
