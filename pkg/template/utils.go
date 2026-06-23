@@ -43,6 +43,7 @@ func funcMap(templateFs fs.FS) gotpl.FuncMap {
 		"list":          listFunc, // for passing arguments to template fragments
 		"sortedKeys":    sortedKeysFunc,
 		"mmv1ToAnsible": ansible.MapMmv1ToAnsible,
+		"sortOptionMap": ansible.SortOptionMap,
 	}
 	// Copy google template functions
 	maps.Copy(funcMap, google.TemplateFunctions(templateFs))

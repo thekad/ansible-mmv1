@@ -149,3 +149,14 @@ func sortYAMLMapKeys(node *yaml.Node) {
 func ToPythonTpl(tpl string) string {
 	return strings.ReplaceAll(strings.ReplaceAll(tpl, "{{", "{"), "}}", "}")
 }
+
+func SortOptionMap(m map[string]*Option) []*Option {
+	opts := make([]*Option, 0, len(m))
+	for _, option := range m {
+		opts = append(opts, option)
+	}
+	sort.Slice(opts, func(i, j int) bool {
+		return opts[i].Name < opts[j].Name
+	})
+	return opts
+}
