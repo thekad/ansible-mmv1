@@ -26,9 +26,6 @@ var standardModuleRequirements = []string{
 	"google-auth >= 2.25.1",
 }
 
-// maxDescriptionLength caps generated description line length.
-const maxDescriptionLength = 140
-
 // sensitiveFieldPatterns are substrings used to heuristically detect sensitive field names.
 var sensitiveFieldPatterns = []string{
 	"password",

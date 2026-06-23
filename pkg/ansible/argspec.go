@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 )
 
 // ArgumentSpec represents the argument specification for an Ansible module
@@ -15,8 +17,8 @@ type ArgumentSpec struct {
 	// Arguments is the main argument specification dictionary
 	Arguments map[string]*Option
 
-	// Dependencies is the top-level dependency specification
-	Dependencies *Dependency
+	// Dependency is the top-level dependency specification
+	Dependency *Dependency
 }
 
 // NewArgSpecFromOptions creates an ArgumentSpec from a map of Option structs
@@ -27,7 +29,7 @@ func NewArgSpecFromOptions(options map[string]*Option, topLevelDependency *Depen
 		Arguments: make(map[string]*Option),
 	}
 
-	argSpec.Dependencies = topLevelDependency
+	argSpec.Dependency = topLevelDependency
 
 	if options == nil {
 		return argSpec
@@ -36,7 +38,8 @@ func NewArgSpecFromOptions(options map[string]*Option, topLevelDependency *Depen
 	// Add each option directly to the ArgumentSpec
 	for name, option := range options {
 		if option.OutputOnly() {
-			continue // Skip output-only options
+			log.Debug().Str("name", name).Msgf("skipping output-only option for argument spec")
+			continue
 		}
 		argSpec.Arguments[name] = option
 	}
@@ -227,7 +230,7 @@ func (as *ArgumentSpec) writeArgumentConstraints(builder *strings.Builder, optio
 			builder.WriteString(fmt.Sprintf("%smutually_exclusive=%s,\n", indent, pythonListOfTuples(option.Dependency.MutuallyExclusive)))
 		}
 		if len(option.Dependency.RequiredTogether) > 0 {
-			builder.WriteString(fmt.Sprintf("%srequired_together=%s,\n", indent, pythonListOfLists(option.Dependency.RequiredTogether)))
+			builder.WriteString(fmt.Sprintf("%srequired_together=%s,\n", indent, pythonListOfTuples(option.Dependency.RequiredTogether)))
 		}
 		if len(option.Dependency.RequiredOneOf) > 0 {
 			builder.WriteString(fmt.Sprintf("%srequired_one_of=%s,\n", indent, pythonListOfTuples(option.Dependency.RequiredOneOf)))
@@ -239,17 +242,17 @@ func (as *ArgumentSpec) writeArgumentConstraints(builder *strings.Builder, optio
 func (as *ArgumentSpec) buildModuleConstraints() string {
 	var constraints []string
 
-	if as.Dependencies == nil {
+	if as.Dependency == nil {
 		return ""
 	}
-	if len(as.Dependencies.MutuallyExclusive) > 0 {
-		constraints = append(constraints, fmt.Sprintf("mutually_exclusive=%s", pythonListOfTuples(as.Dependencies.MutuallyExclusive)))
+	if len(as.Dependency.MutuallyExclusive) > 0 {
+		constraints = append(constraints, fmt.Sprintf("mutually_exclusive=%s", pythonListOfTuples(as.Dependency.MutuallyExclusive)))
 	}
-	if len(as.Dependencies.RequiredTogether) > 0 {
-		constraints = append(constraints, fmt.Sprintf("required_together=%s", pythonListOfLists(as.Dependencies.RequiredTogether)))
+	if len(as.Dependency.RequiredTogether) > 0 {
+		constraints = append(constraints, fmt.Sprintf("required_together=%s", pythonListOfTuples(as.Dependency.RequiredTogether)))
 	}
-	if len(as.Dependencies.RequiredOneOf) > 0 {
-		constraints = append(constraints, fmt.Sprintf("required_one_of=%s", pythonListOfTuples(as.Dependencies.RequiredOneOf)))
+	if len(as.Dependency.RequiredOneOf) > 0 {
+		constraints = append(constraints, fmt.Sprintf("required_one_of=%s", pythonListOfTuples(as.Dependency.RequiredOneOf)))
 	}
 	if len(constraints) == 0 {
 		return ""
@@ -345,19 +348,6 @@ func pythonTuple(items []string) string {
 		quoted = append(quoted, pythonQuote(item))
 	}
 	return fmt.Sprintf("(%s)", strings.Join(quoted, ", "))
-}
-
-// pythonListOfLists converts a slice of string slices to a Python list of lists
-func pythonListOfLists(items [][]string) string {
-	if len(items) == 0 {
-		return "[]"
-	}
-
-	var lists []string
-	for _, subList := range items {
-		lists = append(lists, pythonList(subList))
-	}
-	return fmt.Sprintf("[%s]", strings.Join(lists, ", "))
 }
 
 // pythonListOfTuples converts a slice of string slices to a Python list of tuples

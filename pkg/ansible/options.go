@@ -133,6 +133,9 @@ type Option struct {
 	// ExactlyOneOf is optional - list of options where exactly one must be provided
 	ExactlyOneOf []string `yaml:"-"`
 
+	// AtLeastOneOf is optional - list of options where at least one must be provided
+	AtLeastOneOf []string `yaml:"-"`
+
 	// NoLog is optional - whether this option is sensitive and should not be logged
 	// Uses *bool to support three states: nil (absent), false (explicitly not sensitive), true (explicitly sensitive)
 	NoLog *bool `yaml:"-"`
@@ -156,14 +159,6 @@ type Option struct {
 	AllowEmptyObject bool `yaml:"-"`
 }
 
-func (o *Option) OutputOnly() bool {
-	if o.Parent != nil {
-		return o.Parent.OutputOnly()
-	}
-
-	return o.Mmv1 != nil && o.Mmv1.Output
-}
-
 // HasNoLog returns true if NoLog is explicitly set (either true or false)
 func (o *Option) HasNoLog() bool {
 	return o.NoLog != nil
@@ -174,26 +169,13 @@ func (o *Option) IsNoLog() bool {
 	return o.NoLog != nil && *o.NoLog
 }
 
-func (o *Option) IsOutput() bool {
-	// Check if this option itself has output
-	if o.Output {
+// OutputOnly returns true if the description mentions "output only". Kinda lame :(
+func (o *Option) OutputOnly() bool {
+	if strings.Contains(strings.ToLower(strings.Join(o.Description, " ")), "output only") {
 		return true
 	}
 
-	// Recursively check all suboptions
-	if o.Suboptions != nil {
-		for _, suboption := range o.Suboptions {
-			if suboption.IsOutput() {
-				return true
-			}
-		}
-	}
-
 	return false
-}
-
-func (o *Option) SortedSuboptions() []*Option {
-	return sortedOptions(o.Suboptions)
 }
 
 func (o *Option) UrlParamOnly() bool {
@@ -203,16 +185,36 @@ func (o *Option) UrlParamOnly() bool {
 	return o.Mmv1.UrlParamOnly
 }
 
-func (o *Option) OutputSuboptions() []*Option {
-	return google.Reject(o.SortedSuboptions(), func(o *Option) bool {
-		return o.UrlParamOnly()
-	})
+func (o *Option) OutputSuboptions() map[string]*Option {
+	outputSuboptions := map[string]*Option{}
+	for name, option := range o.Suboptions {
+		if option.Output {
+			outputSuboptions[name] = option
+		}
+	}
+	return outputSuboptions
 }
 
-func (o *Option) InputSuboptions() []*Option {
-	return google.Reject(o.SortedSuboptions(), func(o *Option) bool {
-		return o.Output
-	})
+func (o *Option) InputSuboptions() map[string]*Option {
+	inputSuboptions := map[string]*Option{}
+	for name, option := range o.Suboptions {
+		if option.Output || option.Virtual || option.ClientSide || option.UrlParamOnly() {
+			continue
+		}
+		inputSuboptions[name] = option
+	}
+	return inputSuboptions
+}
+
+func (o *Option) ArgumentSuboptions() map[string]*Option {
+	argumentSuboptions := map[string]*Option{}
+	for name, option := range o.Suboptions {
+		if option.Output || option.OutputOnly() {
+			continue
+		}
+		argumentSuboptions[name] = option
+	}
+	return argumentSuboptions
 }
 
 func (o *Option) IsList() bool {
@@ -267,23 +269,10 @@ func NewOptionsFromMmv1(resource *mmv1api.Resource) map[string]*Option {
 		return nil
 	}
 
-	// Process all user properties from the API Resource
 	options := convertPropertiesToOptions(resource.AllUserProperties(), nil, false)
 	virtualOptions := convertPropertiesToOptions(resource.UserVirtualFields(), nil, true)
 	for name, option := range virtualOptions {
-		log.Debug().Str("virtualField", name).Msgf("%v", option)
 		options[name] = option
-	}
-
-	// Always add the standard 'state' option for GCP resources
-	options["state"] = &Option{
-		Name: "state",
-		Description: []string{
-			"Whether the resource should exist in GCP.",
-		},
-		Type:    TypeStr,
-		Default: "present",
-		Choices: []string{"present", "absent"},
 	}
 
 	return options
@@ -318,6 +307,10 @@ func convertPropertiesToOptions(properties []*mmv1api.Type, parent *Option, virt
 
 	for _, property := range properties {
 
+		if isTFOnlyPropertyName(property.Name) {
+			continue
+		}
+
 		// Determine NoLog value with heuristics
 		var noLog *bool
 		falseVal := false
@@ -345,6 +338,7 @@ func convertPropertiesToOptions(properties []*mmv1api.Type, parent *Option, virt
 			Conflicts:        property.Conflicts,
 			RequiredWith:     property.RequiredWith,
 			ExactlyOneOf:     property.ExactlyOneOf,
+			AtLeastOneOf:     property.AtLeastOneOf,
 			NoLog:            noLog,
 			Output:           property.Output,
 			ClientSide:       property.ClientSide,
@@ -365,10 +359,12 @@ func convertPropertiesToOptions(properties []*mmv1api.Type, parent *Option, virt
 
 		// Handle nested dictionary objects (direct suboptions)
 		if option.Type == TypeDict && property.Properties != nil {
-			option.Suboptions = convertPropertiesToOptions(property.Properties, option, false) // virtual fields are top level only (so far)
-			option.Dependency = getDependency(option.Suboptions)
-			if option.Dependency != nil {
-				log.Debug().Msgf("option %s has dependency in its suboptions: %+v", option.Name, option.Dependency)
+			subOpts := convertPropertiesToOptions(property.Properties, option, false) // virtual fields are top level only (so far)
+			option.Suboptions = subOpts
+			option.Dependency = &Dependency{
+				MutuallyExclusive: translateMmv1Conflicts(subOpts),
+				RequiredTogether:  translateMmv1RequiredWith(subOpts),
+				RequiredOneOf:     translateMmv1AtLeastOneOf(subOpts),
 			}
 		}
 
@@ -378,134 +374,89 @@ func convertPropertiesToOptions(properties []*mmv1api.Type, parent *Option, virt
 	return options
 }
 
-// getDependency analyzes the Conflicts, RequiredWith, and AtLeastOneOf of each option in the map and creates
-// de-duped permutations for MutuallyExclusive, RequiredTogether, and RequiredOneOf. Returns a Dependency struct
-// with MutuallyExclusive, RequiredTogether, and RequiredOneOf filled in, or nil if no dependencies are found.
-func getDependency(options map[string]*Option) *Dependency {
+// extractGroupsFromField iterates options and builds deduplicated sorted groups
+// from the provided per-option field accessor.
+// If prependOwner is true the owning option's AnsibleName is prepended to the group
+// (for Conflicts / RequiredWith which do not include the owner in their lists).
+// If false, the field's entries are assumed to already contain the owner
+// (for AtLeastOneOf).
+func extractGroupsFromField(
+	options map[string]*Option,
+	field func(*Option) []string,
+	prependOwner bool,
+) [][]string {
 	if options == nil {
 		return nil
 	}
 
-	var mutuallyExclusive [][]string
-	var requiredTogether [][]string
-	var requiredOneOf [][]string
-	seenMutual := make(map[string]bool)
-	seenRequired := make(map[string]bool)
-	seenOneOf := make(map[string]bool)
+	var groups [][]string
+	seen := map[string]bool{}
 
-	for optionName, option := range options {
-		// Handle Conflicts -> MutuallyExclusive
-		if len(option.Conflicts) > 0 {
-			conflicts := make([]string, 0, len(option.Conflicts))
-			for _, conflict := range option.Conflicts {
-				// normalize the conflict base name
-				parts := strings.Split(conflict, ".")
-				conflictName := parts[len(parts)-1]
-				conflicts = append(conflicts, google.Underscore(conflictName))
-			}
-
-			log.Debug().Msgf("option %s has conflicts with %+v", optionName, conflicts)
-
-			// Create a conflict group with the current option and its conflicts
-			conflictGroup := make([]string, 0, len(conflicts)+1)
-			conflictGroup = append(conflictGroup, optionName)
-			conflictGroup = append(conflictGroup, conflicts...)
-
-			// Sort the group to ensure consistent ordering for deduplication
-			sort.Strings(conflictGroup)
-
-			// Create a key for deduplication
-			key := strings.Join(conflictGroup, ",")
-			if !seenMutual[key] {
-				seenMutual[key] = true
-				mutuallyExclusive = append(mutuallyExclusive, conflictGroup)
-			}
+	for name, option := range options {
+		if option == nil {
+			continue
+		}
+		if isTFOnlyPropertyName(name) {
+			continue
 		}
 
-		// Handle RequiredWith -> RequiredTogether
-		if len(option.RequiredWith) > 0 {
-			requiredWith := make([]string, 0, len(option.RequiredWith))
-			for _, required := range option.RequiredWith {
-				// normalize the required base name
-				parts := strings.Split(required, ".")
-				requiredName := parts[len(parts)-1]
-				requiredWith = append(requiredWith, google.Underscore(requiredName))
-			}
-
-			log.Debug().Msgf("option %s is required together with %+v", optionName, requiredWith)
-
-			// Create a required group with the current option and its required options
-			requiredGroup := make([]string, 0, len(requiredWith)+1)
-			requiredGroup = append(requiredGroup, optionName)
-			requiredGroup = append(requiredGroup, requiredWith...)
-
-			// Sort the group to ensure consistent ordering for deduplication
-			sort.Strings(requiredGroup)
-
-			// Create a key for deduplication
-			key := strings.Join(requiredGroup, ",")
-			if !seenRequired[key] {
-				seenRequired[key] = true
-				requiredTogether = append(requiredTogether, requiredGroup)
-			}
+		entries := field(option)
+		if len(entries) == 0 {
+			continue
 		}
 
-		// Handle ExactlyOneOf -> RequiredOneOf + MutuallyExclusive
-		// "Exactly one of" means both "at least one required" AND "no more than one allowed"
-		// Note: ExactlyOneOf already includes the current option in the list, unlike Conflicts/RequiredWith
-		if len(option.ExactlyOneOf) > 0 {
-			exactlyOneOf := make([]string, 0, len(option.ExactlyOneOf))
-			for _, oneOf := range option.ExactlyOneOf {
-				// normalize the option base name
-				parts := strings.Split(oneOf, ".")
-				oneOfName := parts[len(parts)-1]
-				exactlyOneOf = append(exactlyOneOf, google.Underscore(oneOfName))
+		normalized := []string{}
+		for _, entry := range entries {
+			parts := strings.Split(entry, ".")
+			entryName := parts[len(parts)-1]
+			if isTFOnlyPropertyName(entryName) {
+				continue
 			}
+			normalized = append(normalized, google.Underscore(entryName))
+		}
 
-			log.Debug().Msgf("option %s requires exactly one of %+v", optionName, exactlyOneOf)
+		group := []string{}
+		if prependOwner {
+			group = append(group, option.AnsibleName())
+		}
+		group = append(group, normalized...)
 
-			// Sort the group to ensure consistent ordering for deduplication
-			sort.Strings(exactlyOneOf)
+		if len(group) < 2 {
+			continue
+		}
 
-			// Create a key for deduplication
-			key := strings.Join(exactlyOneOf, ",")
-
-			// Add to RequiredOneOf (at least one must be provided)
-			if !seenOneOf[key] {
-				seenOneOf[key] = true
-				requiredOneOf = append(requiredOneOf, exactlyOneOf)
-			}
-
-			// Add to MutuallyExclusive (no more than one can be provided)
-			if !seenMutual[key] {
-				seenMutual[key] = true
-				mutuallyExclusive = append(mutuallyExclusive, exactlyOneOf)
-			}
+		sort.Strings(group)
+		key := strings.Join(group, ",")
+		if !seen[key] {
+			seen[key] = true
+			groups = append(groups, group)
 		}
 	}
 
-	if len(mutuallyExclusive) == 0 && len(requiredTogether) == 0 && len(requiredOneOf) == 0 {
+	if len(groups) == 0 {
 		return nil
 	}
 
-	dependency := &Dependency{}
-	if len(mutuallyExclusive) > 0 {
-		// Sort for stable output
-		sortStringSlices(mutuallyExclusive)
-		dependency.MutuallyExclusive = mutuallyExclusive
-	}
-	if len(requiredTogether) > 0 {
-		// Sort for stable output
-		sortStringSlices(requiredTogether)
-		dependency.RequiredTogether = requiredTogether
-	}
-	if len(requiredOneOf) > 0 {
-		// Sort for stable output
-		sortStringSlices(requiredOneOf)
-		dependency.RequiredOneOf = requiredOneOf
-	}
+	sortStringSlices(groups)
+	return groups
+}
 
-	return dependency
+// translateMmv1Conflicts analyzes Conflicts on each option and returns deduplicated
+// mutually_exclusive groups.
+func translateMmv1Conflicts(options map[string]*Option) [][]string {
+	return extractGroupsFromField(options, func(o *Option) []string { return o.Conflicts }, true)
+}
+
+// translateMmv1RequiredWith analyzes RequiredWith on each option and returns deduplicated
+// required_together groups.
+func translateMmv1RequiredWith(options map[string]*Option) [][]string {
+	return extractGroupsFromField(options, func(o *Option) []string { return o.RequiredWith }, true)
+}
+
+// translateMmv1AtLeastOneOf analyzes AtLeastOneOf on each option and returns deduplicated
+// required_one_of groups.
+func translateMmv1AtLeastOneOf(options map[string]*Option) [][]string {
+	return extractGroupsFromField(options, func(o *Option) []string { return o.AtLeastOneOf }, false)
 }
 
 // sortStringSlices sorts a slice of string slices for stable, deterministic output.
@@ -514,15 +465,4 @@ func sortStringSlices(slices [][]string) {
 	sort.Slice(slices, func(i, j int) bool {
 		return strings.Join(slices[i], ",") < strings.Join(slices[j], ",")
 	})
-}
-
-func sortedOptions(m map[string]*Option) []*Option {
-	opts := make([]*Option, 0, len(m))
-	for _, option := range m {
-		opts = append(opts, option)
-	}
-	sort.Slice(opts, func(i, j int) bool {
-		return opts[i].Name < opts[j].Name
-	})
-	return opts
 }

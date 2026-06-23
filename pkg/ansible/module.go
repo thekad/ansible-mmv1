@@ -31,7 +31,23 @@ type Module struct {
 // returns, and operation configs from the Mmv1 API Resource object, and then
 // build the rest of the members based off the options.
 func NewFromResource(resource *api.Resource) *Module {
+	// Always define standard options for GCP resources
+	standardOptions := map[string]*Option{
+		"state": {
+			Name: "state",
+			Description: []string{
+				"Whether the resource should exist in GCP.",
+			},
+			Type:    TypeStr,
+			Default: "present",
+			Choices: []string{"present", "absent"},
+		},
+	}
+
 	options := NewOptionsFromMmv1(resource.Mmv1)
+	for name, option := range standardOptions {
+		options[name] = option
+	}
 	m := &Module{
 		Name:             resource.AnsibleName(),
 		Resource:         resource,
@@ -40,30 +56,23 @@ func NewFromResource(resource *api.Resource) *Module {
 		Returns:          NewReturnBlockFromMmv1(resource.Mmv1),
 		OperationConfigs: NewOperationConfigsFromMmv1(resource.Mmv1),
 	}
-	m.Dependency = getDependency(m.Options)
-
-	// filter the options to only include input options
-	inputOptions := make(map[string]*Option, 0)
-	for _, option := range options {
-		if option.Mmv1 != nil {
-			if option.Mmv1.Output {
-				continue
-			}
-			/*
-				if option.ClientSide && !option.Virtual {
-					continue
-				}
-			*/
-		}
-		inputOptions[option.AnsibleName()] = option
+	argOpts := m.ArgumentOptions()
+	m.Dependency = &Dependency{
+		MutuallyExclusive: translateMmv1Conflicts(argOpts),
+		RequiredTogether:  translateMmv1RequiredWith(argOpts),
+		RequiredOneOf:     translateMmv1AtLeastOneOf(argOpts),
 	}
-	log.Debug().Msgf("input options %v", inputOptions)
+
+	argumentOptions := m.ArgumentOptions()
+	for name, option := range standardOptions {
+		argumentOptions[name] = option
+	}
 
 	log.Info().Msgf("creating documentation for %s", resource.AnsibleName())
-	m.Documentation = NewDocumentationFromOptions(resource, inputOptions)
+	m.Documentation = NewDocumentationFromOptions(resource, argumentOptions)
 
 	log.Info().Msgf("creating argument spec for %s", resource.AnsibleName())
-	m.ArgumentSpec = NewArgSpecFromOptions(inputOptions, m.Dependency)
+	m.ArgumentSpec = NewArgSpecFromOptions(argumentOptions, m.Dependency)
 
 	return m
 }
@@ -118,28 +127,49 @@ func (m *Module) ProductName() string {
 	return m.Resource.Parent.Mmv1.Name
 }
 
-func (m *Module) AllMmv1Options() []*Option {
-	opts := make([]*Option, 0)
-	for _, option := range sortedOptions(m.Options) {
+func (m *Module) AllMmv1Options() map[string]*Option {
+	opts := make(map[string]*Option)
+	for name, option := range m.Options {
 		// we only care about options that have an mmv1 attached to them
 		if option.Mmv1 == nil {
 			continue
 		}
-		opts = append(opts, option)
+		opts[name] = option
 	}
 	return opts
 }
 
-func (m *Module) OutputOptions() []*Option {
-	return google.Reject(m.AllMmv1Options(), func(o *Option) bool {
-		return o.UrlParamOnly()
-	})
+func (m *Module) OutputOptions() map[string]*Option {
+	outputOptions := map[string]*Option{}
+	for name, option := range m.AllMmv1Options() {
+		if option.Output {
+			outputOptions[name] = option
+		}
+	}
+
+	return outputOptions
 }
 
-func (m *Module) InputOptions() []*Option {
-	return google.Reject(m.AllMmv1Options(), func(o *Option) bool {
-		return o.Output || o.UrlParamOnly()
-	})
+func (m *Module) ArgumentOptions() map[string]*Option {
+	argumentOptions := map[string]*Option{}
+	for name, option := range m.AllMmv1Options() {
+		if option.Output || option.OutputOnly() {
+			continue
+		}
+		argumentOptions[name] = option
+	}
+	return argumentOptions
+}
+
+func (m *Module) InputOptions() map[string]*Option {
+	inputOptions := map[string]*Option{}
+	for name, option := range m.AllMmv1Options() {
+		if option.Output || option.Virtual || option.ClientSide || option.UrlParamOnly() {
+			continue
+		}
+		inputOptions[name] = option
+	}
+	return inputOptions
 }
 
 func (m *Module) AllNestedOptions() map[string]*Option {
