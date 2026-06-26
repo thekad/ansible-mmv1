@@ -106,6 +106,20 @@ func (td *TemplateData) writeFile(filePath, templateName string, input any) erro
 	return nil
 }
 
+func (td *TemplateData) GenerateInfoCode(module *ansible.InfoModule) error {
+	if err := os.MkdirAll(td.ModuleDirectory, 0755); err != nil {
+		return fmt.Errorf("error creating info module directory: %v", err)
+	}
+
+	moduleFile := path.Join(td.ModuleDirectory, fmt.Sprintf("%s.py", module))
+
+	if err := td.writeFile(moduleFile, "plugins/module_info.tmpl", module); err != nil {
+		return fmt.Errorf("error generating info module file: %v", err)
+	}
+
+	return nil
+}
+
 func (td *TemplateData) GenerateCode(module *ansible.Module) error {
 	if err := os.MkdirAll(td.ModuleDirectory, 0755); err != nil {
 		return fmt.Errorf("error creating module directory: %v", err)

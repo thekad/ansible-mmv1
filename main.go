@@ -45,8 +45,10 @@ func generationWorkerCount(numModules int) int {
 // worker goroutines do not need to access shared state.
 type moduleJob struct {
 	module     *ansible.Module
+	infoModule *ansible.InfoModule
 	writeCode  bool
 	writeTests bool
+	writeInfo  bool
 }
 
 func generateModule(templateData *renderer.TemplateData, job moduleJob, noFormat bool) error {
@@ -61,6 +63,21 @@ func generateModule(templateData *renderer.TemplateData, job moduleJob, noFormat
 			log.Info().Msgf("formatting ansible module file: %s", filePath)
 			if err := formatFile(filePath, "black"); err != nil {
 				return fmt.Errorf("format %s: %w", m.Name, err)
+			}
+		}
+
+	}
+	if job.writeInfo {
+		im := job.infoModule
+		log.Info().Msgf("generating info module for ansible module: %s", im)
+		if err := templateData.GenerateInfoCode(im); err != nil {
+			return fmt.Errorf("generate info module for %s: %w", im, err)
+		}
+		if !noFormat {
+			infoFilePath := path.Join(templateData.ModuleDirectory, fmt.Sprintf("%s.py", im))
+			log.Info().Msgf("formatting ansible info module file: %s", infoFilePath)
+			if err := formatFile(infoFilePath, "black"); err != nil {
+				return fmt.Errorf("format info module %s: %w", im, err)
 			}
 		}
 	}
@@ -113,10 +130,10 @@ func generateModules(templateData *renderer.TemplateData, jobs []moduleJob, noFo
 }
 
 // ProductConfig holds per-product configuration with optional resource list
-// and optional skip directives for code and test generation.
+// and optional skip directives for code, test, and info module generation.
 //
-// skip-code and skip-tests accept a list of resource names to skip, or ['*']
-// to skip all resources in the product:
+// skip-code, skip-tests, and skip-info each accept a list of resource names to
+// skip, or ['*'] to skip all resources in the product:
 //
 //	products:
 //	  - name: cloudbuildv2
@@ -126,11 +143,14 @@ func generateModules(templateData *renderer.TemplateData, jobs []moduleJob, noFo
 //	      - Endpoint
 //	    skip-code:               # skip code only for the listed resources
 //	      - SomeResource
+//	    skip-info:               # skip info module generation for listed resources
+//	      - SomeResource
 type ProductConfig struct {
 	Name      string   `mapstructure:"name"`
 	Resources []string `mapstructure:"resources"`
 	SkipCode  []string `mapstructure:"skip-code"`
 	SkipTests []string `mapstructure:"skip-tests"`
+	SkipInfo  []string `mapstructure:"skip-info"`
 }
 
 // skipContains reports whether resource (case-insensitive) is covered by the
@@ -185,6 +205,7 @@ func init() {
 	rootCmd.Flags().StringSlice("resources", []string{}, "comma-separated list of resources to generate")
 	rootCmd.Flags().Bool("no-code", false, "skip code generation")
 	rootCmd.Flags().Bool("no-tests", false, "skip test generation")
+	rootCmd.Flags().Bool("no-info", false, "skip info module generation")
 	rootCmd.Flags().Bool("no-format", false, "skip formatting files (i.e. black/yamlfmt)")
 	rootCmd.Flags().Bool("overwrite", false, "overwrite existing files")
 	rootCmd.Flags().String("min-version", MIN_VERSION, "minimum version to generate")
@@ -368,6 +389,7 @@ func runGenerate(cmd *cobra.Command, args []string) {
 	output, _ := cmd.Flags().GetString("output")
 	noCode, _ := cmd.Flags().GetBool("no-code")
 	noTests, _ := cmd.Flags().GetBool("no-tests")
+	noInfo, _ := cmd.Flags().GetBool("no-info")
 	noFormat, _ := cmd.Flags().GetBool("no-format")
 	minVersion, _ := cmd.Flags().GetString("min-version")
 	noGitClone, _ := cmd.Flags().GetBool("no-git-clone")
@@ -386,10 +408,12 @@ func runGenerate(cmd *cobra.Command, args []string) {
 	// Index per-product skip lists by lowercase product name for O(1) lookup.
 	configSkipCode := make(map[string][]string, len(configProducts))
 	configSkipTests := make(map[string][]string, len(configProducts))
+	configSkipInfo := make(map[string][]string, len(configProducts))
 	for _, p := range configProducts {
 		key := strings.ToLower(p.Name)
 		configSkipCode[key] = p.SkipCode
 		configSkipTests[key] = p.SkipTests
+		configSkipInfo[key] = p.SkipInfo
 	}
 	cliProducts, cliResources := getCLIProductResourceFilters(cmd)
 
@@ -474,23 +498,31 @@ func runGenerate(cmd *cobra.Command, args []string) {
 
 			module := ansible.NewFromResource(r)
 			module.MinVersion = r.MinVersion()
+			infoModule := ansible.NewInfoFromResource(r)
+			infoModule.MinVersion = r.MinVersion()
 
 			// Resolve per-resource skip flags.
-			// CLI --no-code / --no-tests act as a global override; config-level
-			// skip-code / skip-tests refine at the product or resource level.
+			// CLI --no-code / --no-tests / --no-info act as independent global overrides;
+			// config-level skip-code / skip-tests refine at the product or resource level.
 			writeCode := !noCode && !skipContains(configSkipCode[short], mmRes.Name)
 			writeTests := !noTests && !skipContains(configSkipTests[short], mmRes.Name)
+			writeInfo := !noInfo && !skipContains(configSkipInfo[short], mmRes.Name)
 			if !writeCode {
 				log.Debug().Msgf("skipping code generation for %s.%s", short, mmRes.Name)
 			}
 			if !writeTests {
 				log.Debug().Msgf("skipping test generation for %s.%s", short, mmRes.Name)
 			}
+			if !writeInfo {
+				log.Debug().Msgf("skipping info module generation for %s.%s", short, mmRes.Name)
+			}
 
 			jobsToRun = append(jobsToRun, moduleJob{
 				module:     module,
+				infoModule: infoModule,
 				writeCode:  writeCode,
 				writeTests: writeTests,
+				writeInfo:  writeInfo,
 			})
 		}
 	}

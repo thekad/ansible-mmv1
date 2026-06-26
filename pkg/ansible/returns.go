@@ -163,7 +163,7 @@ func convertPropertiesToReturns(properties []*mmv1api.Type) map[string]*ReturnAt
 		}
 
 		returnAttr := &ReturnAttribute{
-			Description: parsePropertyDescription(property),
+			Description: parsePropertyDescription(property, true),
 			Returned:    determineReturnedCondition(property),
 			Type:        returnType,
 		}

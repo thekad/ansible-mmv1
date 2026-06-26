@@ -19,6 +19,8 @@ overwrite: true
 #                 or a list of resource names to skip selectively
 #   skip-tests  - ['*'] to skip test generation for every resource in the product,
 #                 or a list of resource names to skip selectively
+#   skip-info   - ['*'] to skip info module generation for every resource in the product,
+#                 or a list of resource names to skip selectively
 products:
   - name: alloydb
     resources:

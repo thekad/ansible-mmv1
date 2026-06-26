@@ -36,6 +36,10 @@ func (r *Resource) AnsibleName() string {
 	return fmt.Sprintf("%s_%s", r.Parent.AnsibleName(), google.Underscore(r.Name))
 }
 
+func (r *Resource) FriendlyName() string {
+	return fmt.Sprintf("%s.%s", r.Parent.Mmv1.ApiName, r.Mmv1.ApiName)
+}
+
 // MinVersion will return the minimum version supported by the given resource
 func (r *Resource) MinVersion() string {
 	if r.Mmv1.MinVersion == "" {

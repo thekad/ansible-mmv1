@@ -15,7 +15,9 @@ import (
 )
 
 // parsePropertyDescription converts API property description to Ansible format i.e. multi-line string to list of strings
-func parsePropertyDescription(property *mmv1api.Type) []string {
+// When extended is true, additional annotations are appended for ResourceRef fields and immutable properties.
+// Set extended to false (e.g. for info modules) to emit only the core description sentences.
+func parsePropertyDescription(property *mmv1api.Type, extended bool) []string {
 	description := property.Description
 	if property.Description == "" {
 		description = "No description available."
@@ -47,19 +49,21 @@ func parsePropertyDescription(property *mmv1api.Type) []string {
 		cleanLines = []string{"No description available."}
 	}
 
-	if property.Type == "ResourceRef" {
-		log.Debug().Msgf("%s is a resource ref", property.Name)
-		sourceRefDesc := []string{
-			fmt.Sprintf("This field is a reference to a %s resource in GCP.", property.Resource),
-			fmt.Sprintf("It can be specified in two ways: First, you can place a dictionary with key '%s' matching your resource.", string(property.Imports)),
-			fmt.Sprintf("Alternatively, you can add `register: name-of-resource` to a %s task and then set this field to `{{ name-of-resource }}`.", property.Resource),
+	if extended {
+		if property.Type == "ResourceRef" {
+			log.Debug().Msgf("%s is a resource ref", property.Name)
+			sourceRefDesc := []string{
+				fmt.Sprintf("This field is a reference to a %s resource in GCP.", property.Resource),
+				fmt.Sprintf("It can be specified in two ways: First, you can place a dictionary with key '%s' matching your resource.", string(property.Imports)),
+				fmt.Sprintf("Alternatively, you can add `register: name-of-resource` to a %s task and then set this field to `{{ name-of-resource }}`.", property.Resource),
+			}
+			cleanLines = append(cleanLines, sourceRefDesc...)
 		}
-		cleanLines = append(cleanLines, sourceRefDesc...)
-	}
 
-	if immutable {
-		log.Debug().Msgf("%s is immutable", property.Name)
-		cleanLines = append(cleanLines, "This property is immutable, to change it, you must delete and recreate the resource.")
+		if immutable {
+			log.Debug().Msgf("%s is immutable", property.Name)
+			cleanLines = append(cleanLines, "This property is immutable, to change it, you must delete and recreate the resource.")
+		}
 	}
 
 	return cleanLines

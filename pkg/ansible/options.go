@@ -269,8 +269,8 @@ func NewOptionsFromMmv1(resource *mmv1api.Resource) map[string]*Option {
 		return nil
 	}
 
-	options := convertPropertiesToOptions(resource.AllUserProperties(), nil, false)
-	virtualOptions := convertPropertiesToOptions(resource.UserVirtualFields(), nil, true)
+	options := convertPropertiesToOptions(resource.AllUserProperties(), nil, false, true)
+	virtualOptions := convertPropertiesToOptions(resource.UserVirtualFields(), nil, true, true)
 	for name, option := range virtualOptions {
 		options[name] = option
 	}
@@ -297,8 +297,11 @@ func looksLikeSensitiveField(name string) bool {
 	return false
 }
 
-// convertPropertiesToOptions converts MMv1 properties to Ansible options
-func convertPropertiesToOptions(properties []*mmv1api.Type, parent *Option, virtual bool) map[string]*Option {
+// convertPropertiesToOptions converts MMv1 properties to Ansible options.
+// When extended is true, additional annotations (ResourceRef hints, immutable notes) are
+// appended to each option's description. Pass false for info modules, which only need the
+// core description sentences.
+func convertPropertiesToOptions(properties []*mmv1api.Type, parent *Option, virtual bool, extended bool) map[string]*Option {
 	if properties == nil {
 		return nil
 	}
@@ -330,7 +333,7 @@ func convertPropertiesToOptions(properties []*mmv1api.Type, parent *Option, virt
 			Name:             property.Name,
 			Mmv1:             property,
 			Parent:           parent,
-			Description:      parsePropertyDescription(property),
+			Description:      parsePropertyDescription(property, extended),
 			Type:             MapMmv1ToAnsible(property),
 			Required:         property.Required,
 			Default:          property.DefaultValue,
@@ -353,13 +356,13 @@ func convertPropertiesToOptions(properties []*mmv1api.Type, parent *Option, virt
 
 			// If the list contains nested objects, create suboptions for the element type
 			if property.ItemType.Type == "NestedObject" && property.ItemType.Properties != nil {
-				option.Suboptions = convertPropertiesToOptions(property.ItemType.Properties, option, false) // virtual fields are top level only (so far)
+				option.Suboptions = convertPropertiesToOptions(property.ItemType.Properties, option, false, extended) // virtual fields are top level only (so far)
 			}
 		}
 
 		// Handle nested dictionary objects (direct suboptions)
 		if option.Type == TypeDict && property.Properties != nil {
-			subOpts := convertPropertiesToOptions(property.Properties, option, false) // virtual fields are top level only (so far)
+			subOpts := convertPropertiesToOptions(property.Properties, option, false, extended) // virtual fields are top level only (so far)
 			option.Suboptions = subOpts
 			option.Dependency = &Dependency{
 				MutuallyExclusive: translateMmv1Conflicts(subOpts),
