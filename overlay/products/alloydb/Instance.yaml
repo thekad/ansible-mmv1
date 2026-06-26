@@ -1,4 +1,6 @@
 ---
+base_url: "{cluster}/instances" # upstream mmv1 could use create_url instead of using base_url wrong
+create_url: "{cluster}/instances?instanceId={instance_id}" # upstream mmv1 doesn't have this value
 custom_code:
   custom_import: _drop
   pre_create: _drop
