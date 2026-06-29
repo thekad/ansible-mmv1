@@ -5,7 +5,6 @@ package ansible
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	mmv1api "github.com/GoogleCloudPlatform/magic-modules/mmv1/api"
@@ -13,202 +12,6 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/thekad/ansible-mmv1/pkg/api"
 )
-
-// ---------------------------------------------------------------------------
-// ArgumentInfoSpec
-// ---------------------------------------------------------------------------
-
-// ArgumentInfoSpec is the argument_spec for an info module.
-// Module-specific parameters declared here:
-//   - one entry per URL-param-only property (e.g. location, cluster_id) — these
-//     are required to construct the API list URL.
-//   - filters — optional list of filter expression strings forwarded to the backend.
-//
-// All other auth parameters (project, auth_kind, service_account_*, scopes, etc.)
-// are injected automatically by gcp_v2.Module and are covered by the
-// google.cloud.gcp documentation fragment; they must not be repeated here.
-type ArgumentInfoSpec struct {
-	UrlParamOnlyOptions []*Option
-}
-
-// NewArgumentInfoSpec creates an ArgumentInfoSpec for the given URL-param-only options.
-func NewArgumentInfoSpec(urlParamOnlyOptions []*Option) *ArgumentInfoSpec {
-	return &ArgumentInfoSpec{
-		UrlParamOnlyOptions: urlParamOnlyOptions,
-	}
-}
-
-// ToString emits the Python argument_spec=dict(...) snippet.
-// All entries are sorted alphabetically; URL-param-only options are interleaved
-// with the fixed filters entry.
-func (a *ArgumentInfoSpec) ToString() string {
-	var b strings.Builder
-
-	b.WriteString("argument_spec=dict(\n")
-
-	// Collect all entry names so we can sort them together.
-	type entry struct {
-		name  string
-		lines []string
-	}
-
-	entries := []entry{}
-
-	// URL-param-only properties — required, typed, no default.
-	for _, opt := range a.UrlParamOnlyOptions {
-		lines := []string{
-			"    " + pythonIdentifier(opt.AnsibleName()) + "=dict(\n",
-			"        type=" + pythonQuote("str") + ",\n",
-		}
-		if opt.Required {
-			lines = append(lines, "        required=True,\n")
-		}
-		lines = append(lines, "    ),\n")
-		entries = append(entries, entry{name: opt.AnsibleName(), lines: lines})
-	}
-
-	// filters — list of filter expression strings joined by AND, optional.
-	entries = append(entries, entry{
-		name: "filters",
-		lines: []string{
-			"    filters=dict(\n",
-			"        type=" + pythonQuote("list") + ",\n",
-			"        elements=" + pythonQuote("str") + ",\n",
-			"    ),\n",
-		},
-	})
-
-	// Sort alphabetically by name.
-	sort.Slice(entries, func(i, j int) bool {
-		return entries[i].name < entries[j].name
-	})
-
-	for _, e := range entries {
-		for _, line := range e.lines {
-			b.WriteString(line)
-		}
-	}
-
-	b.WriteString(")")
-	return b.String()
-}
-
-// ---------------------------------------------------------------------------
-// DocumentationInfo
-// ---------------------------------------------------------------------------
-
-// DocumentationInfo is the DOCUMENTATION block for an info module.
-// It hardwires a single option (filters) and uses the google.cloud.gcp
-// documentation fragment to cover all standard auth parameters.
-type DocumentationInfo struct {
-	Module           string             `yaml:"module"`
-	ShortDescription string             `yaml:"short_description"`
-	Description      []string           `yaml:"description"`
-	Author           []string           `yaml:"author,omitempty"`
-	Requirements     []string           `yaml:"requirements,omitempty"`
-	Notes            []string           `yaml:"notes,omitempty"`
-	Options          map[string]*Option `yaml:"options,omitempty"`
-	DocFragments     []string           `yaml:"extends_documentation_fragment,omitempty"`
-}
-
-// NewDocumentationInfo builds the DOCUMENTATION block for an info module.
-// urlParamOnlyOptions are merged into Options alongside the fixed filters entry
-// so that every argument_spec entry has a corresponding DOCUMENTATION entry.
-func NewDocumentationInfo(resource *api.Resource, urlParamOnlyOptions []*Option) *DocumentationInfo {
-	notes := []string{
-		fmt.Sprintf("API Reference: U(%s)", resource.Mmv1.References.Api),
-	}
-	for name, guide := range resource.Mmv1.References.Guides {
-		notes = append(notes, fmt.Sprintf("%s Guide: U(%s)", name, guide))
-	}
-	sort.Strings(notes)
-
-	options := map[string]*Option{
-		"filters": {
-			Description: []string{
-				"A list of filter expression strings used to filter the resources returned by the API.",
-				"Each string is a filter expression (e.g. C(some_field = \"SOME_VALUE\")).",
-				"Multiple expressions are combined with a logical AND.",
-				"Refer to the filter topic documentation U(https://cloud.google.com/sdk/gcloud/reference/topic/filters).",
-				"Refer to the IAP-160 filter syntax documentation U(https://google.aip.dev/160).",
-			},
-			Type:     TypeList,
-			Elements: TypeStr,
-			Required: false,
-		},
-	}
-
-	// Merge URL-param-only options so each has a DOCUMENTATION entry.
-	// URL path parameters are always scalar strings regardless of their MMv1 type,
-	// so force TypeStr and clear any list/nested-object metadata.
-	for _, opt := range urlParamOnlyOptions {
-		docOpt := *opt // shallow copy — don't mutate the shared Option
-		docOpt.Type = TypeStr
-		docOpt.Elements = ""
-		docOpt.Suboptions = nil
-		options[opt.AnsibleName()] = &docOpt
-	}
-
-	return &DocumentationInfo{
-		Module:           resource.AnsibleName() + "_info",
-		ShortDescription: fmt.Sprintf("List GCP %s resources", resource.FriendlyName()),
-		Description:      cleanModuleDescription(resource.Mmv1.Description),
-		Author:           []string{"Google Inc. (@googlecloudplatform)"},
-		Requirements:     standardModuleRequirements,
-		Notes:            notes,
-		Options:          options,
-		DocFragments:     []string{"google.cloud.gcp"},
-	}
-}
-
-// ToString serialises the documentation block to a YAML string.
-func (d *DocumentationInfo) ToString() string {
-	return ToYAML(d)
-}
-
-// ---------------------------------------------------------------------------
-// ReturnInfo
-// ---------------------------------------------------------------------------
-
-// ReturnInfo is the RETURN block for an info module.
-// It always documents exactly two values: changed (always false) and items
-// (a list of zero or more resources matching the supplied filters).
-type ReturnInfo struct {
-	ResourceKind string // e.g. "AlloyDB.Cluster"
-}
-
-// NewReturnInfo creates a ReturnInfo for the given resource.
-func NewReturnInfo(resource *api.Resource) *ReturnInfo {
-	return &ReturnInfo{
-		ResourceKind: resource.Parent.Mmv1.Name + "." + resource.Mmv1.Name,
-	}
-}
-
-// ToString serialises the return block to a YAML string.
-func (r *ReturnInfo) ToString() string {
-	returns := map[string]*ReturnAttribute{
-		"changed": {
-			Description: "Whether any changes were made (always false for info modules).",
-			Returned:    "always",
-			Type:        ReturnTypeBool,
-		},
-		"resources": {
-			Description: fmt.Sprintf(
-				"List of %s resources matching the supplied filters. "+
-					"May be empty, contain a single resource, or multiple resources.",
-				r.ResourceKind,
-			),
-			Returned: "always",
-			Type:     ReturnTypeList,
-			Elements: ReturnTypeDict,
-		},
-	}
-	return ToYAML(returns)
-}
-
-// ---------------------------------------------------------------------------
-// InfoModule
-// ---------------------------------------------------------------------------
 
 // InfoModule is the top-level data structure passed to module_info.tmpl.
 // It is constructed independently of Module — there is no shared state between
@@ -218,7 +21,7 @@ type InfoModule struct {
 	Name              string
 	Resource          *api.Resource
 	MinVersion        string
-	DocumentationInfo *DocumentationInfo
+	DocumentationInfo *Documentation
 	ReturnInfo        *ReturnInfo
 	ArgumentInfoSpec  *ArgumentInfoSpec
 	OperationConfigs  *OperationConfigs
@@ -309,7 +112,7 @@ func (m *InfoModule) Kind() string {
 	)
 }
 
-// AllUserProperties returns all user-facing properties from the MMv1 resource,
+// UrlParamOnlyProperties returns all url-param-only properties from the MMv1 resource,
 // used by the template to enumerate URL-param-only properties.
 func (m *InfoModule) UrlParamOnlyProperties() []*mmv1api.Type {
 	return google.Select(m.Resource.Mmv1.AllUserProperties(), func(p *mmv1api.Type) bool {

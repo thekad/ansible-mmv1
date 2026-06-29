@@ -261,6 +261,85 @@ func (as *ArgumentSpec) buildModuleConstraints() string {
 	return strings.Join(constraints, ",\n")
 }
 
+// ---------------------------------------------------------------------------
+// ArgumentInfoSpec
+// ---------------------------------------------------------------------------
+
+// ArgumentInfoSpec is the argument_spec for an info module.
+// Module-specific parameters declared here:
+//   - one entry per URL-param-only property (e.g. location, cluster_id) — these
+//     are required to construct the API list URL.
+//   - filters — optional list of filter expression strings forwarded to the backend.
+//
+// All other auth parameters (project, auth_kind, service_account_*, scopes, etc.)
+// are injected automatically by gcp_v2.Module and are covered by the
+// google.cloud.gcp documentation fragment; they must not be repeated here.
+type ArgumentInfoSpec struct {
+	UrlParamOnlyOptions []*Option
+}
+
+// NewArgumentInfoSpec creates an ArgumentInfoSpec for the given URL-param-only options.
+func NewArgumentInfoSpec(urlParamOnlyOptions []*Option) *ArgumentInfoSpec {
+	return &ArgumentInfoSpec{
+		UrlParamOnlyOptions: urlParamOnlyOptions,
+	}
+}
+
+// ToString emits the Python argument_spec=dict(...) snippet.
+// All entries are sorted alphabetically; URL-param-only options are interleaved
+// with the fixed filters entry.
+func (a *ArgumentInfoSpec) ToString() string {
+	var b strings.Builder
+
+	b.WriteString("argument_spec=dict(\n")
+
+	// Collect all entry names so we can sort them together.
+	type entry struct {
+		name  string
+		lines []string
+	}
+
+	entries := []entry{}
+
+	// URL-param-only properties — required, typed, no default.
+	for _, opt := range a.UrlParamOnlyOptions {
+		lines := []string{
+			"    " + pythonIdentifier(opt.AnsibleName()) + "=dict(\n",
+			"        type=" + pythonQuote("str") + ",\n",
+		}
+		if opt.Required {
+			lines = append(lines, "        required=True,\n")
+		}
+		lines = append(lines, "    ),\n")
+		entries = append(entries, entry{name: opt.AnsibleName(), lines: lines})
+	}
+
+	// filters — list of filter expression strings joined by AND, optional.
+	entries = append(entries, entry{
+		name: "filters",
+		lines: []string{
+			"    filters=dict(\n",
+			"        type=" + pythonQuote("list") + ",\n",
+			"        elements=" + pythonQuote("str") + ",\n",
+			"    ),\n",
+		},
+	})
+
+	// Sort alphabetically by name.
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].name < entries[j].name
+	})
+
+	for _, e := range entries {
+		for _, line := range e.lines {
+			b.WriteString(line)
+		}
+	}
+
+	b.WriteString(")")
+	return b.String()
+}
+
 // Python formatting helper functions
 
 // pythonIdentifier formats a string as a Python identifier for use in dict() constructor

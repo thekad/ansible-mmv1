@@ -9,6 +9,7 @@ import (
 	mmv1api "github.com/GoogleCloudPlatform/magic-modules/mmv1/api"
 	"github.com/GoogleCloudPlatform/magic-modules/mmv1/google"
 	"github.com/rs/zerolog/log"
+	"github.com/thekad/ansible-mmv1/pkg/api"
 )
 
 // ReturnType represents the data types returned by the module
@@ -101,6 +102,16 @@ func mapMmv1TypeToReturnType(property *mmv1api.Type) (ReturnType, error) {
 	}
 }
 
+// changedReturnAttribute returns a ReturnAttribute for the standard "changed"
+// key with the given description.
+func changedReturnAttribute(description string) *ReturnAttribute {
+	return &ReturnAttribute{
+		Description: description,
+		Returned:    "always",
+		Type:        ReturnTypeBool,
+	}
+}
+
 // NewReturnBlockFromMmv1 creates a map of Ansible return attributes from a magic-modules API Resource
 // This function extracts properties from the API Resource and converts them to Ansible module return format
 // following the specification at: https://docs.ansible.com/ansible/latest/dev_guide/developing_modules_documenting.html#return-block
@@ -114,11 +125,7 @@ func NewReturnBlockFromMmv1(resource *mmv1api.Resource) *ReturnBlock {
 	}
 
 	// Add standard return values that all GCP modules should have
-	returns.Returns["changed"] = &ReturnAttribute{
-		Description: "Whether the resource was changed.",
-		Returned:    "always",
-		Type:        ReturnTypeBool,
-	}
+	returns.Returns["changed"] = changedReturnAttribute("Whether the resource was changed.")
 
 	returns.Returns["state"] = &ReturnAttribute{
 		Description: "The current state of the resource.",
@@ -191,6 +198,42 @@ func convertPropertiesToReturns(properties []*mmv1api.Type) map[string]*ReturnAt
 	}
 
 	return returns
+}
+
+// ---------------------------------------------------------------------------
+// ReturnInfo
+// ---------------------------------------------------------------------------
+
+// ReturnInfo is the RETURN block for an info module.
+// It always documents exactly two values: changed (always false) and items
+// (a list of zero or more resources matching the supplied filters).
+type ReturnInfo struct {
+	ResourceKind string // e.g. "AlloyDB.Cluster"
+}
+
+// NewReturnInfo creates a ReturnInfo for the given resource.
+func NewReturnInfo(resource *api.Resource) *ReturnInfo {
+	return &ReturnInfo{
+		ResourceKind: resource.Parent.Mmv1.Name + "." + resource.Mmv1.Name,
+	}
+}
+
+// ToString serialises the return block to a YAML string.
+func (r *ReturnInfo) ToString() string {
+	returns := map[string]*ReturnAttribute{
+		"changed": changedReturnAttribute("Whether any changes were made (always false for info modules)."),
+		"resources": {
+			Description: fmt.Sprintf(
+				"List of %s resources matching the supplied filters. "+
+					"May be empty, contain a single resource, or multiple resources.",
+				r.ResourceKind,
+			),
+			Returned: "always",
+			Type:     ReturnTypeList,
+			Elements: ReturnTypeDict,
+		},
+	}
+	return ToYAML(returns)
 }
 
 // determineReturnedCondition determines when a return value is returned based on property characteristics
