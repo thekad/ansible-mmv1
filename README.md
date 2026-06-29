@@ -1,7 +1,7 @@
 # Magic Ansible
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Go Version](https://img.shields.io/badge/Go-1.23+-blue.svg)](https://golang.org/)
+[![Go Version](https://img.shields.io/badge/Go-1.25+-blue.svg)](https://golang.org/)
 
 Magic Ansible is a code generation tool that automatically creates Ansible modules for Google Cloud Platform (GCP) resources from the [Magic Modules](https://github.com/GoogleCloudPlatform/magic-modules) project. It transforms GCP resource definitions into fully functional Ansible modules with proper documentation, examples, and type safety.
 
@@ -18,7 +18,7 @@ Magic Ansible is a code generation tool that automatically creates Ansible modul
 
 ### Prerequisites
 
-- Go 1.23 or later
+- Go 1.25 or later
 - Git
 
 ### Get the Source
@@ -56,12 +56,13 @@ go run .
 | `--products` | | | Comma-separated list of products to generate |
 | `--resources` | | | Comma-separated list of resources to generate |
 | `--no-code` | | `false` | Skip code generation |
+| `--no-info` | | `false` | Skip info module generation |
 | `--no-tests` | | `false` | Skip test generation |
 | `--no-format` | | `false` | Skip formatting files (i.e. black/yamlfmt) |
 | `--overwrite` | | `false` | Overwrite existing files |
 | `--min-version` | | `beta` | Minimum version to generate |
 | `--log-level` | `-l` | `info` | Log level (trace, debug, info, warn, error, fatal) |
-| `--config` | `-C` | | Path to config file |
+| `--config` | `-C` | `config.yaml` | Path to config file |
 
 ### Overlay: missing Ansible example templates
 
