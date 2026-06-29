@@ -136,7 +136,7 @@ func NewReturnBlockFromMmv1(resource *mmv1api.Resource) *ReturnBlock {
 	// Process properties from the API Resource
 	convertedReturns := convertPropertiesToReturns(google.Select(resource.GettableProperties(), func(p *mmv1api.Type) bool {
 		return p.Output
-	}))
+	}), true)
 
 	// Merge the converted returns with the standard returns
 	for name, returnAttr := range convertedReturns {
@@ -146,8 +146,11 @@ func NewReturnBlockFromMmv1(resource *mmv1api.Resource) *ReturnBlock {
 	return returns
 }
 
-// convertPropertiesToReturns converts MMv1 properties to Ansible return attributes
-func convertPropertiesToReturns(properties []*mmv1api.Type) map[string]*ReturnAttribute {
+// convertPropertiesToReturns converts MMv1 properties to Ansible return attributes.
+// When extended is true, additional annotations (ResourceRef links, immutable notes)
+// are appended to property descriptions — suitable for regular modules.
+// Set extended to false for info modules to emit only the core description sentences.
+func convertPropertiesToReturns(properties []*mmv1api.Type, extended bool) map[string]*ReturnAttribute {
 	if properties == nil {
 		return nil
 	}
@@ -170,7 +173,7 @@ func convertPropertiesToReturns(properties []*mmv1api.Type) map[string]*ReturnAt
 		}
 
 		returnAttr := &ReturnAttribute{
-			Description: parsePropertyDescription(property, true),
+			Description: parsePropertyDescription(property, extended),
 			Returned:    determineReturnedCondition(property),
 			Type:        returnType,
 		}
@@ -185,13 +188,13 @@ func convertPropertiesToReturns(properties []*mmv1api.Type) map[string]*ReturnAt
 
 			// If the list contains nested objects, create contains for the element type
 			if property.ItemType.Type == "NestedObject" && property.ItemType.Properties != nil {
-				returnAttr.Contains = convertPropertiesToReturns(property.ItemType.Properties)
+				returnAttr.Contains = convertPropertiesToReturns(property.ItemType.Properties, extended)
 			}
 		}
 
 		// Handle nested dictionary objects (direct contains)
 		if (returnAttr.Type == ReturnTypeDict || returnAttr.Type == ReturnTypeComplex) && property.Properties != nil {
-			returnAttr.Contains = convertPropertiesToReturns(property.Properties)
+			returnAttr.Contains = convertPropertiesToReturns(property.Properties, extended)
 		}
 
 		returns[returnName] = returnAttr
@@ -205,16 +208,21 @@ func convertPropertiesToReturns(properties []*mmv1api.Type) map[string]*ReturnAt
 // ---------------------------------------------------------------------------
 
 // ReturnInfo is the RETURN block for an info module.
-// It always documents exactly two values: changed (always false) and items
-// (a list of zero or more resources matching the supplied filters).
+// It always documents exactly two values: changed (always false) and resources
+// (a list of zero or more resources matching the supplied filters, with a full
+// contains schema derived from the resource's gettable properties).
 type ReturnInfo struct {
-	ResourceKind string // e.g. "AlloyDB.Cluster"
+	ResourceKind string                     // e.g. "AlloyDB.Cluster"
+	Contains     map[string]*ReturnAttribute // schema of each item in the resources list
 }
 
 // NewReturnInfo creates a ReturnInfo for the given resource.
+// All gettable properties are included in Contains with extended=false so that
+// ResourceRef and immutability annotations are omitted from info module output.
 func NewReturnInfo(resource *api.Resource) *ReturnInfo {
 	return &ReturnInfo{
 		ResourceKind: resource.Parent.Mmv1.Name + "." + resource.Mmv1.Name,
+		Contains:     convertPropertiesToReturns(resource.Mmv1.GettableProperties(), false),
 	}
 }
 
@@ -231,6 +239,7 @@ func (r *ReturnInfo) ToString() string {
 			Returned: "always",
 			Type:     ReturnTypeList,
 			Elements: ReturnTypeDict,
+			Contains: r.Contains,
 		},
 	}
 	return ToYAML(returns)
