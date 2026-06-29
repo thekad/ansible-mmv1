@@ -148,7 +148,7 @@ func NewReturnBlockFromMmv1(resource *mmv1api.Resource) *ReturnBlock {
 
 // convertPropertiesToReturns converts MMv1 properties to Ansible return attributes.
 // When extended is true, additional annotations (ResourceRef links, immutable notes)
-// are appended to property descriptions — suitable for regular modules.
+// are appended to property descriptions - suitable for regular modules.
 // Set extended to false for info modules to emit only the core description sentences.
 func convertPropertiesToReturns(properties []*mmv1api.Type, extended bool) map[string]*ReturnAttribute {
 	if properties == nil {

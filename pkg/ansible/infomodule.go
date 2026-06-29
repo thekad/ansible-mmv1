@@ -14,7 +14,7 @@ import (
 )
 
 // InfoModule is the top-level data structure passed to module_info.tmpl.
-// It is constructed independently of Module — there is no shared state between
+// It is constructed independently of Module - there is no shared state between
 // the two and InfoModule carries no CustomCode, no nested options, no operation
 // configs, and no CRUD logic.
 type InfoModule struct {

@@ -121,7 +121,7 @@ func TestGetRequiredOneOf(t *testing.T) {
 			"foo": {Name: "foo", AtLeastOneOf: []string{"foo", "effectiveLabels"}},
 		}
 
-		// after filtering effectiveLabels, only "foo" survives — group < 2, must be nil
+		// after filtering effectiveLabels, only "foo" survives - group < 2, must be nil
 		if got := translateMmv1AtLeastOneOf(options); got != nil {
 			t.Fatalf("getRequiredOneOf() = %#v, want nil", got)
 		}
@@ -144,7 +144,7 @@ func TestGetRequiredOneOf(t *testing.T) {
 func TestGetRequiredTogether(t *testing.T) {
 	t.Run("dedupes circular required-with groups", func(t *testing.T) {
 		// RequiredWith does NOT include the owning option, but A requires [B,C],
-		// B requires [A,C], C requires [A,B] — all produce sorted key "a,b,c".
+		// B requires [A,C], C requires [A,B] - all produce sorted key "a,b,c".
 		options := map[string]*Option{
 			"a": {Name: "a", RequiredWith: []string{"b", "c"}},
 			"b": {Name: "b", RequiredWith: []string{"a", "c"}},

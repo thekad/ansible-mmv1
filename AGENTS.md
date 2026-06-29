@@ -9,7 +9,7 @@ produces:
 - Python Ansible module files (`output/plugins/modules/<name>.py`)
 - Integration test scaffolding (`output/tests/integration/targets/<name>/`)
 
-It is the `ansible` compiler target in the Magic Modules ecosystem — analogous to how
+It is the `ansible` compiler target in the Magic Modules ecosystem - analogous to how
 MMv1 generates Terraform provider resources, this tool generates `google.cloud`
 Ansible collection modules.
 
@@ -74,10 +74,10 @@ The `overlay/` directory mirrors the MMv1 directory layout. At load time, an
 This allows Ansible-specific customizations without touching upstream YAML.
 
 Overlay YAML files support:
-- `_drop: true` — remove an item from a list of maps
-- Field merges — override specific fields in nested objects
-- Smart matching — items matched by `name` or `id`
-- List replacement — scalar lists are fully replaced
+- `_drop: true` - remove an item from a list of maps
+- Field merges - override specific fields in nested objects
+- Smart matching - items matched by `name` or `id`
+- List replacement - scalar lists are fully replaced
 
 Overlay YAML also supports `custom_code` blocks with hooks: `pre_read`, `post_read`,
 `pre_create`, `post_create`, `pre_update`, `pre_delete`, `post_delete`, `encoder`,
@@ -162,22 +162,23 @@ skip them if unavailable.
 
 When modifying generation logic, the most relevant files are:
 
-- **`pkg/ansible/module.go`** and **`pkg/ansible/options.go`** — how MMv1 types map to
+- **`pkg/ansible/module.go`** and **`pkg/ansible/options.go`** - how MMv1 types map to
   Ansible module options
-- **`pkg/api/loader.go`** — how the overlay FS and Ansible example redirect work
-- **`templates/plugins/module.tmpl`** — the core generated Python module template
-- **`overlay/products/<product>/<resource>.yaml`** — per-resource customizations
-- **`config.yaml`** — which products/resources are generated and git settings
+- **`pkg/api/loader.go`** - how the overlay FS and Ansible example redirect work
+- **`templates/plugins/module.tmpl`** - the core generated Python module template
+- **`overlay/products/<product>/<resource>.yaml`** - per-resource customizations
+- **`config.yaml`** - which products/resources are generated and git settings
 
 ## Coding Conventions
 
 - License header: Apache 2.0, copyright Red Hat Inc.
 - All Go files start with `// Copyright 2025 Red Hat Inc.\n// SPDX-License-Identifier: Apache-2.0`
 - Logging via `github.com/rs/zerolog`; use `log.Info()`, `log.Debug()`, `log.Warn()`,
-  `log.Fatal()` — never `fmt.Println` for operational messages
+  `log.Fatal()` - never `fmt.Println` for operational messages
 - CLI via `cobra`; configuration via `viper` (config file + flags merged); flags bound
   to viper keys via `mustBindPFlag()`
 - Errors are wrapped with `fmt.Errorf("context: %w", err)`
+- Do not use Unicode em-dashes (`—`) anywhere in the codebase, comments, templates, or documentation (including this file); use a regular hyphen or dash (`-`) instead.
 - Generated Python modules include a GPL v3 header + "AUTO GENERATED CODE" warning
 
 ## What Is Generated

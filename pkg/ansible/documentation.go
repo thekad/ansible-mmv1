@@ -102,7 +102,7 @@ func NewDocumentationInfo(resource *api.Resource, urlParamOnlyOptions []*Option)
 	// URL path parameters are always scalar strings regardless of their MMv1 type,
 	// so force TypeStr and clear any list/nested-object metadata.
 	for _, opt := range urlParamOnlyOptions {
-		docOpt := *opt // shallow copy — don't mutate the shared Option
+		docOpt := *opt // shallow copy - don't mutate the shared Option
 		docOpt.Type = TypeStr
 		docOpt.Elements = ""
 		docOpt.Suboptions = nil

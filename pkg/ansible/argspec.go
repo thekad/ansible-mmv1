@@ -267,9 +267,9 @@ func (as *ArgumentSpec) buildModuleConstraints() string {
 
 // ArgumentInfoSpec is the argument_spec for an info module.
 // Module-specific parameters declared here:
-//   - one entry per URL-param-only property (e.g. location, cluster_id) — these
+//   - one entry per URL-param-only property (e.g. location, cluster_id) - these
 //     are required to construct the API list URL.
-//   - filters — optional list of filter expression strings forwarded to the backend.
+//   - filters - optional list of filter expression strings forwarded to the backend.
 //
 // All other auth parameters (project, auth_kind, service_account_*, scopes, etc.)
 // are injected automatically by gcp_v2.Module and are covered by the
@@ -301,7 +301,7 @@ func (a *ArgumentInfoSpec) ToString() string {
 
 	entries := []entry{}
 
-	// URL-param-only properties — required, typed, no default.
+	// URL-param-only properties - required, typed, no default.
 	for _, opt := range a.UrlParamOnlyOptions {
 		lines := []string{
 			"    " + pythonIdentifier(opt.AnsibleName()) + "=dict(\n",
@@ -314,7 +314,7 @@ func (a *ArgumentInfoSpec) ToString() string {
 		entries = append(entries, entry{name: opt.AnsibleName(), lines: lines})
 	}
 
-	// filters — list of filter expression strings joined by AND, optional.
+	// filters - list of filter expression strings joined by AND, optional.
 	entries = append(entries, entry{
 		name: "filters",
 		lines: []string{
