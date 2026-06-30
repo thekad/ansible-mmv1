@@ -2,8 +2,8 @@
 git:
   url: https://github.com/GoogleCloudPlatform/magic-modules
   dir: magic-modules
-  # TODO: change back to origin/main, ExcludeIdentityGeneration was added in the next commit
-  rev: e12d706eda51e09961e1cb8b5ce802cb5c78dbbd
+  # TODO: kept in sync with go.mod
+  rev: 953dea7fa4f7270bf92187ed59fd5395eb327188
   pull: false
 
 # Optional overlay (layout: products/, templates/) merged over base
@@ -30,12 +30,12 @@ products:
       - User
   - name: cloudbuild
     skip-tests:
-      - '*'
+      - "*"
     resources:
       - Trigger
   - name: cloudbuildv2
     skip-tests:
-      - '*'
+      - "*"
     resources:
       - Connection
       - Repository
