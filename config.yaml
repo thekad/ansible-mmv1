@@ -31,6 +31,8 @@ products:
   - name: cloudbuild
     skip-tests:
       - "*"
+    skip-info:
+      - "*"
     resources:
       - Trigger
   - name: cloudbuildv2
