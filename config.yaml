@@ -50,6 +50,8 @@ products:
   - name: vertexai
     # skip-tests:
     #   - Endpoint   # or skip-tests: ['*'] for all resources
+    skip-info:
+      - EndpointWithModelGardenDeployment # Should be using Endpoint instead
     resources:
       - Dataset
       - DeploymentResourcePool

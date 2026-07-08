@@ -159,7 +159,9 @@ func skipContains(skip []string, resource string) bool {
 	if slices.Contains(skip, "*") {
 		return true
 	}
-	return slices.Contains(skip, strings.ToLower(resource))
+	return slices.ContainsFunc(skip, func(s string) bool {
+		return strings.ToLower(s) == strings.ToLower(resource)
+	})
 }
 
 // mustBindPFlag binds a cobra flag to a viper key, panicking if it fails.
