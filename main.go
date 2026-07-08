@@ -160,7 +160,7 @@ func skipContains(skip []string, resource string) bool {
 		return true
 	}
 	return slices.ContainsFunc(skip, func(s string) bool {
-		return strings.ToLower(s) == strings.ToLower(resource)
+		return strings.EqualFold(s, resource)
 	})
 }
 
