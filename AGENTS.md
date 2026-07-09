@@ -30,6 +30,8 @@ ansible-mmv1/
 │   │   ├── colab/
 │   │   ├── tpuv2/
 │   │   └── vertexai/
+│   ├── info/                   # Per-product/resource info module customization files
+│   │   └── vertexai/           # (NOT loaded by MMv1; read directly by NewInfoFromResource)
 │   └── templates/ansible/examples/   # 73 Ansible YAML example templates (.tmpl)
 ├── pkg/
 │   ├── api/                    # MMv1 product/resource loading + overlay FS wrappers
@@ -37,6 +39,7 @@ ansible-mmv1/
 │   │   └── loader.go           # LoadProducts(), OverlayFS, ansibleExampleRedirectFS
 │   ├── ansible/                # Module building from MMv1 resource definitions
 │   │   ├── module.go           # Module struct + constructor
+│   │   ├── infomodule.go       # InfoModule struct + constructor; loads overlay/info/ customizations
 │   │   ├── argspec.go          # argument_spec=dict(...) Python code generation
 │   │   ├── documentation.go    # DOCUMENTATION block builder
 │   │   ├── examples.go         # EXAMPLES block (doc vs test variants)
@@ -101,9 +104,10 @@ Modules are named `gcp_<product>_<resource>` (all lowercase). For example,
 2. `pkg/api`: build `OverlayFS` → call MMv1 loader with `CompilerTarget: "ansible"`
    → wrap products/resources → load Ansible example templates
 3. `pkg/ansible`: `NewFromResource()` builds a `Module` struct (options, docs,
-   examples, returns, operation configs, argspec)
-4. `pkg/renderer`: render `module.tmpl` → write `.py`; render test templates → write
-   integration test tree
+   examples, returns, operation configs, argspec); `NewInfoFromResource()` builds an
+   `InfoModule` struct, optionally loading a customization file from `overlay/info/`
+4. `pkg/renderer`: render `module.tmpl` → write `.py`; render `module_info.tmpl` →
+   write `_info.py`; render test templates → write integration test tree
 5. Optionally run `black` (Python) and `yamlfmt` on generated files
 
 ### Worker Pool
@@ -119,10 +123,10 @@ The list of products is currently defined in `config.yaml` the table below shoul
 | Product | Resources |
 |---|---|
 | `alloydb` | Backup, Cluster, Instance, User |
-| `cloudbuild` | Trigger *(tests skipped)* |
+| `cloudbuild` | Trigger *(tests skipped, info skipped)* |
 | `cloudbuildv2` | Connection, Repository *(tests skipped)* |
 | `colab` | NotebookExecution, Runtime, RuntimeTemplate, Schedule |
-| `vertexai` | Dataset, DeploymentResourcePool, Endpoint, EndpointWithModelGardenDeployment, FeatureGroup, FeatureGroupFeature, FeatureOnlineStore, FeatureOnlineStoreFeatureview, Featurestore, FeaturestoreEntitytype, FeaturestoreEntitytypeFeature, Index, IndexEndpoint, IndexEndpointDeployedIndex, MetadataStore, RagEngineConfig, ReasoningEngine, Tensorboard |
+| `vertexai` | Dataset, DeploymentResourcePool, Endpoint, EndpointWithModelGardenDeployment *(info skipped)*, FeatureGroup, FeatureGroupFeature, FeatureOnlineStore, FeatureOnlineStoreFeatureview, Featurestore, FeaturestoreEntitytype, FeaturestoreEntitytypeFeature, Index, IndexEndpoint, IndexEndpointDeployedIndex, MetadataStore, RagEngineConfig, ReasoningEngine, Tensorboard |
 
 The upstream MMv1 commit is pinned in `config.yaml` under `git.rev`; `git.pull` is
 `false` by default.
@@ -164,9 +168,15 @@ When modifying generation logic, the most relevant files are:
 
 - **`pkg/ansible/module.go`** and **`pkg/ansible/options.go`** - how MMv1 types map to
   Ansible module options
+- **`pkg/ansible/infomodule.go`** - how info modules are built and how customization
+  files are loaded
 - **`pkg/api/loader.go`** - how the overlay FS and Ansible example redirect work
 - **`templates/plugins/module.tmpl`** - the core generated Python module template
+- **`templates/plugins/module_info.tmpl`** - the generated info module template
 - **`overlay/products/<product>/<resource>.yaml`** - per-resource customizations
+- **`overlay/info/<product>/<resource>.yaml`** - per-resource info module customization
+  files (NOT processed by MMv1; contains `custom_code` with `pre_read`, `post_read`,
+  and `custom_import` hooks injected into the info module's `main()`)
 - **`config.yaml`** - which products/resources are generated and git settings
 
 ## Coding Conventions
@@ -189,6 +199,14 @@ Each generated Python module (`output/plugins/modules/<name>.py`):
 - Generates nested `class` definitions (inheriting `gcp.Resource`) for nested objects
 - Generates `encode()` / `decode()` hooks for custom transformation
 - Has a `main()` dispatching create/update/delete with async LRO support
+
+Each generated info module (`output/plugins/modules/<name>_info.py`):
+- Lists resources via the collection URL using the `list` API
+- Accepts a `filters` parameter for server-side filtering
+- May inject `pre_read` / `post_read` / `custom_import` blocks from
+  `overlay/info/<product>/<resource>.yaml` if a customization file exists
+- Has a `main()` that calls `info.list()` and returns results unchanged (unless a
+  `post_read` block modifies them)
 
 Standard module requirements injected into every `DOCUMENTATION` block:
 - `python >= 3.8`

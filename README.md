@@ -148,6 +148,12 @@ Generate only code without tests:
 go run . --products cloudbuildv2 --no-tests
 ```
 
+Generate only code without info modules:
+
+```bash
+go run . --products cloudbuildv2 --no-info
+```
+
 ### Use Existing Git Directory
 
 Skip cloning and use an already cloned magic-modules directory:
@@ -191,6 +197,48 @@ parameters:
 - **Merge Dictionaries**: Override specific fields in nested objects
 - **Smart Matching**: Automatically matches items by `name` or `id` fields
 - **Replace Lists**: Lists of scalars are completely replaced with the override
+
+### Per-product Config Options
+
+In `config.yaml`, each product entry supports these optional skip directives:
+
+```yaml
+products:
+  - name: myproduct
+    resources:
+      - MyResource
+    skip-code:   ['*']           # skip code generation for all resources
+    skip-tests:  ['*']           # skip test generation for all resources
+    skip-info:   ['*']           # skip info module generation for all resources
+    # or selectively:
+    skip-info:
+      - MyResource               # skip info module only for MyResource
+```
+
+### Info Module Customization Files
+
+For resources that require special handling in their `_info.py` modules (e.g. extracting a `region` from a parent resource's FQDN), place a customization file at:
+
+```
+overlay/info/<product>/<Resource>.yaml
+```
+
+These files are **not** processed by the MMv1 loader - they are read directly by `NewInfoFromResource()` in `pkg/ansible/infomodule.go`. They support a `custom_code` block with `pre_read`, `post_read`, and `custom_import` hooks, which are injected directly into the info module's `main()` function:
+
+```yaml
+custom_code:
+  custom_import: |
+    import re
+  pre_read: |
+    # extract region from parent resource FQDN before building the list URL
+    pattern = r"projects/(.+)/locations/(.+)/featurestores/(.+)"
+    match = re.search(pattern, str(module.params.get("featurestore")))
+    if match:
+        info.url_params["region"] = match.group(2)
+  post_read: |
+    # post-process resources after the list call
+    resources = [r for r in resources if r.get("state") == "ACTIVE"]
+```
 
 ## Development
 
