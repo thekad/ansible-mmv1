@@ -42,7 +42,6 @@ from ansible_collections.google.cloud.plugins.module_utils import gcp_v2
 def main():
     """Main function"""
 
-    # for info modules, we don't need all operation configs just the base url/uri
     module = gcp_v2.Module(
         {{ $.ArgumentInfoSpec.ToString | indent 8 false }},
         supports_check_mode=True,
@@ -61,6 +60,14 @@ def main():
         kind="{{ $.Kind }}",
         op_configs=op_configs,
     )
+
+    # BEGIN massaging ResourceRef properties
+{{- range $.UrlParamOnlyProperties }}
+    {{- if strEq .Type "ResourceRef" }}
+    info.url_params["{{ .Name | underscore -}}"] = gcp_v2.resource_ref(module.params["{{ .Name | underscore -}}"], "{{ .Imports }}")
+    {{- end }}
+{{- end }}
+    # END massaging ResourceRef properties
 
     filter_exprs = module.params.get("filters") or []
 
