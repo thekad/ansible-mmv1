@@ -52,6 +52,7 @@ products:
     #   - Endpoint   # or skip-tests: ['*'] for all resources
     skip-info:
       - EndpointWithModelGardenDeployment # Should be using Endpoint instead
+      - RagEngineConfig # Deprecated / no way to query
     resources:
       - Dataset
       - DeploymentResourcePool
