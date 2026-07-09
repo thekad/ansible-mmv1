@@ -28,7 +28,11 @@ RETURN = r"""
 ################################################################################
 
 from ansible_collections.google.cloud.plugins.module_utils import gcp_v2
-
+{{ if and .CustomCode .CustomCode.CustomImport (not (strEq .CustomCode.CustomImport "_drop")) -}}
+# BEGIN Custom imports
+{{ .CustomCode.CustomImport -}}
+# END Custom imports
+{{- end }}
 
 ################################################################################
 # Main
@@ -60,8 +64,20 @@ def main():
 
     filter_exprs = module.params.get("filters") or []
 
+    {{ if and .CustomCode .CustomCode.PreRead }}
+    # BEGIN pre_read custom code
+    {{ .CustomCode.PreRead | indent 4 false }}
+    # END pre_read custom code
+    {{ end }}
+
     link = info.build_link("list")
     resources = info.list(link, key="{{ $.CollectionKey }}", filters=filter_exprs)
+
+    {{ if and .CustomCode .CustomCode.PostRead }}
+    # BEGIN post_read custom code
+    {{ .CustomCode.PostRead | indent 4 false }}
+    # END post_read custom code
+    {{ end }}
 
     module.exit_json(changed=False, resources=resources)
 

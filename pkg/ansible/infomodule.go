@@ -5,13 +5,23 @@ package ansible
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	mmv1api "github.com/GoogleCloudPlatform/magic-modules/mmv1/api"
 	"github.com/GoogleCloudPlatform/magic-modules/mmv1/google"
 	"github.com/rs/zerolog/log"
 	"github.com/thekad/ansible-mmv1/pkg/api"
+	"gopkg.in/yaml.v3"
 )
+
+// InfoCustomCode holds per-resource customizations for info modules.
+type InfoCustomCode struct {
+	CustomImport string `yaml:"custom_import,omitempty"`
+	PreRead      string `yaml:"pre_read,omitempty"`
+	PostRead     string `yaml:"post_read,omitempty"`
+}
 
 // InfoModule is the top-level data structure passed to module_info.tmpl.
 // It is constructed independently of Module - there is no shared state between
@@ -26,6 +36,7 @@ type InfoModule struct {
 	ArgumentInfoSpec  *ArgumentInfoSpec
 	OperationConfigs  *OperationConfigs
 	CollectionKey     string
+	CustomCode        *InfoCustomCode
 }
 
 // filterOptionsInUrl returns only those options from the given map whose
@@ -48,6 +59,27 @@ func filterOptionsInUrl(options map[string]*Option, urlPath string) []*Option {
 // NewInfoFromResource constructs an InfoModule from an API resource.
 func NewInfoFromResource(resource *api.Resource) *InfoModule {
 	log.Info().Msgf("creating info module for %s", resource.AnsibleName())
+
+	type infoCustomizationFile struct {
+		CustomCode *InfoCustomCode `yaml:"custom_code"`
+	}
+
+	// check for and load the info module's customization file
+	var customCode *InfoCustomCode
+	infoPath := filepath.Join("overlay", "info", resource.Parent.Name, resource.Name+".yaml")
+	if _, err := os.Stat(infoPath); err == nil {
+		log.Debug().Msgf("found info module customization file for %s at %s", resource.AnsibleName(), infoPath)
+		data, err := os.ReadFile(infoPath)
+		if err != nil {
+			log.Fatal().Err(err).Msgf("failed to read info module customization file for %s", resource.AnsibleName())
+		}
+
+		var customization infoCustomizationFile
+		if err := yaml.Unmarshal(data, &customization); err != nil {
+			log.Fatal().Err(err).Msgf("failed to unmarshal info module customization file for %s", resource.AnsibleName())
+		}
+		customCode = customization.CustomCode
+	}
 
 	opConfigs := NewOperationConfigsFromMmv1(resource.Mmv1)
 
@@ -84,6 +116,7 @@ func NewInfoFromResource(resource *api.Resource) *InfoModule {
 		ArgumentInfoSpec:  NewArgumentInfoSpec(urlParamOnlyOptions),
 		OperationConfigs:  NewOperationConfigsFromMmv1(resource.Mmv1),
 		CollectionKey:     resource.Mmv1.CollectionUrlKey,
+		CustomCode:        customCode,
 	}
 }
 
