@@ -61,14 +61,6 @@ def main():
         op_configs=op_configs,
     )
 
-    # BEGIN massaging ResourceRef properties
-{{- range $.UrlParamOnlyProperties }}
-    {{- if strEq .Type "ResourceRef" }}
-    info.url_params["{{ .Name | underscore -}}"] = gcp_v2.resource_ref(module.params["{{ .Name | underscore -}}"], "{{ .Imports }}")
-    {{- end }}
-{{- end }}
-    # END massaging ResourceRef properties
-
     filter_exprs = module.params.get("filters") or []
 
     {{ if and .CustomCode .CustomCode.PreRead }}
