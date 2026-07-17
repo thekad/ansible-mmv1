@@ -1,7 +1,7 @@
 # Magic Ansible
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Go Version](https://img.shields.io/badge/Go-1.25+-blue.svg)](https://golang.org/)
+[![Go Version](https://img.shields.io/badge/Go-1.26+-blue.svg)](https://golang.org/)
 
 Magic Ansible is a code generation tool that automatically creates Ansible modules for Google Cloud Platform (GCP) resources from the [Magic Modules](https://github.com/GoogleCloudPlatform/magic-modules) project. It transforms GCP resource definitions into fully functional Ansible modules with proper documentation, examples, and type safety.
 
@@ -18,7 +18,7 @@ Magic Ansible is a code generation tool that automatically creates Ansible modul
 
 ### Prerequisites
 
-- Go 1.25 or later
+- Go 1.26 or later
 - Git
 
 ### Get the Source
