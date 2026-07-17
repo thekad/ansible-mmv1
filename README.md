@@ -64,9 +64,19 @@ go run .
 | `--log-level` | `-l` | `info` | Log level (trace, debug, info, warn, error, fatal) |
 | `--config` | `-C` | `config.yaml` | Path to config file |
 
-### Overlay: missing Ansible example templates
+### Overlay: missing Ansible example/sample templates
 
-If an example has no `templates/ansible/examples/<name>.tmpl` in the overlay or clone, the loader logs a **warning** and uses **empty** example content instead of failing. For Terraform default paths, it tries Ansible first, then Terraform, then empty (each miss is warned).
+Each MMv1 example/sample step resolves to a Terraform config path, which the
+loader redirects to an Ansible-specific template: legacy `examples:` steps look
+for `overlay/templates/ansible/examples/<name>.tmpl`, and native `samples:` steps
+look for `overlay/templates/ansible/samples/services/<pkg>/<name>.tmpl`. If the
+corresponding Ansible template is missing, the loader logs a **warning** and uses
+**empty** content instead of failing or falling back to the raw Terraform
+template (Terraform templates reference variables in a way that doesn't align
+with Ansible generation and can trigger spurious errors upstream).
+
+See `docs/adr/0002-examples-to-samples-migration.md` for the plan to consolidate
+all Ansible-specific content under `samples:` going forward.
 
 ### Loading scope: `--products` vs `--resources`
 
@@ -178,10 +188,17 @@ Override files allow customization of generated modules using YAML. They support
 
 ```yaml
 ---
-# Remove unwanted examples
+# Suppress test/doc generation for an existing example, matched by name
+# (there is no mechanism to remove a list item entirely once declared upstream -
+# see docs/adr/0002-examples-to-samples-migration.md for why)
 examples:
-  - name: "unwanted_example"
-    _drop: true
+  - name: "some_example"
+    exclude_test: true
+    exclude_docs: true
+
+# Blank a scalar custom_code field inherited from the base resource
+custom_code:
+  encoder: _drop
 
 # Update parameter documentation
 parameters:
@@ -193,9 +210,15 @@ parameters:
 
 ### Override Features
 
-- **Drop Items**: Use `_drop: true` to remove items from lists of maps
+- **Blank Scalar Fields**: Use the `_drop` sentinel value on a scalar `custom_code`
+  string field (e.g. `encoder: _drop`) to blank out a value inherited from the base
+  resource. This does **not** work on list items (e.g. you cannot use it to remove
+  an entry from `examples:`/`samples:`/`properties:`) - see
+  `docs/adr/0002-examples-to-samples-migration.md` for details.
 - **Merge Dictionaries**: Override specific fields in nested objects
-- **Smart Matching**: Automatically matches items by `name` or `id` fields
+- **Smart Matching**: List-of-maps items (`examples:`, `samples:`, `properties:`,
+  etc.) are automatically matched against the base by `name` or `id`; a match gets
+  its fields merged in, a non-match gets appended as a new item
 - **Replace Lists**: Lists of scalars are completely replaced with the override
 
 ### Per-product Config Options
@@ -239,6 +262,12 @@ custom_code:
     # post-process resources after the list call
     resources = [r for r in resources if r.get("state") == "ACTIVE"]
 ```
+
+## Documentation
+
+Significant design decisions and migration plans (e.g. the MMv1 upgrade, the
+examples-to-samples overlay migration) are recorded as Architecture Decision
+Records under [`docs/adr/`](docs/adr/README.md).
 
 ## Development
 

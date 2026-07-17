@@ -22,7 +22,8 @@ Ansible collection modules.
 ansible-mmv1/
 ├── main.go                     # CLI entry point (cobra + viper); git clone + worker pool
 ├── config.yaml                 # Primary runtime config (pinned MMv1 commit, product list)
-├── go.mod / go.sum             # Go 1.25 module; key deps: cobra, viper, zerolog, go-git
+├── go.mod / go.sum             # Go 1.26 module; key deps: cobra, viper, zerolog, go-git
+├── docs/adr/                   # Architecture Decision Records (design decisions, migration plans)
 ├── overlay/                    # Local YAML + template overrides layered over the MMv1 clone
 │   ├── products/               # Per-product/resource YAML overrides (MMv1 layout)
 │   │   ├── alloydb/
@@ -32,7 +33,13 @@ ansible-mmv1/
 │   │   └── vertexai/
 │   ├── info/                   # Per-product/resource info module customization files
 │   │   └── vertexai/           # (NOT loaded by MMv1; read directly by NewInfoFromResource)
-│   └── templates/ansible/examples/   # 73 Ansible YAML example templates (.tmpl)
+│   └── templates/ansible/
+│       ├── examples/           # Legacy: Ansible YAML templates (.tmpl) for resources still on
+│       │                       # upstream's `examples:` key, or names shadowing an upstream
+│       │                       # `examples:` entry. Being phased out; see docs/adr/0002.
+│       └── samples/services/<pkg>/  # Ansible YAML templates (.tmpl) for resources using
+│                               # upstream's native `samples:` key. Preferred location for
+│                               # all new content (see docs/adr/0002).
 ├── pkg/
 │   ├── api/                    # MMv1 product/resource loading + overlay FS wrappers
 │   │   ├── api.go              # Product/Resource structs; AnsibleName() -> gcp_<prod>_<res>
@@ -77,21 +84,47 @@ The `overlay/` directory mirrors the MMv1 directory layout. At load time, an
 This allows Ansible-specific customizations without touching upstream YAML.
 
 Overlay YAML files support:
-- `_drop: true` - remove an item from a list of maps
+- `_drop: true` - a sentinel value (not `true` as a boolean flag) used to blank a
+  *scalar* `custom_code` string field (e.g. `encoder: _drop`); checked at
+  template-render time via `strEq ... "_drop"`. It does **not** remove items from
+  list-of-maps fields such as `examples:`/`samples:`/`properties:` - there is no
+  mechanism to delete a list item once declared upstream. See
+  `docs/adr/0002-examples-to-samples-migration.md` for the full investigation.
 - Field merges - override specific fields in nested objects
-- Smart matching - items matched by `name` or `id`
-- List replacement - scalar lists are fully replaced
+- Smart matching - list-of-maps items (e.g. `examples:`, `samples:`, `properties:`)
+  are matched against the base by their `name` field; a match gets its fields
+  merged in, a non-match gets appended as a new item
+- List replacement - scalar lists (e.g. `[]string` fields like `scopes`) are fully
+  replaced
 
 Overlay YAML also supports `custom_code` blocks with hooks: `pre_read`, `post_read`,
 `pre_create`, `post_create`, `pre_update`, `pre_delete`, `post_delete`, `encoder`,
 `decoder`, `custom_import`, `custom_create`, `custom_update`, `custom_delete`.
 
-### Ansible Example Templates
+### Ansible Example/Sample Templates
 
-For each MMv1 example, the loader looks for
-`overlay/templates/ansible/examples/<name>.tmpl`. If not found, the loader logs a
-warning and uses empty content. This redirect is handled transparently by
-`ansibleExampleRedirectFS` in `pkg/api/loader.go`.
+`ansibleExampleRedirectFS` in `pkg/api/loader.go` transparently redirects the
+Terraform config paths MMv1 computes for each example/sample step to our own
+Ansible-specific templates:
+
+- Legacy `examples:`-derived steps (`templates/terraform/examples/<name>.tf.tmpl`)
+  redirect to `overlay/templates/ansible/examples/<name>.tmpl`.
+- Native `samples:` steps (`templates/terraform/samples/services/<pkg>/<name>.tf.tmpl`)
+  redirect to `overlay/templates/ansible/samples/services/<pkg>/<name>.tmpl`.
+
+If the corresponding Ansible template is not found in either case, the loader logs
+a warning and uses **empty** content (no fallback to the raw Terraform template -
+those reference `$.Vars`/`$.ResourceIdVars` in ways that don't align with our
+Ansible templates and can trigger spurious validation errors upstream). Empty
+content is filtered out downstream by `pkg/ansible/examples.go`'s `ToString()`.
+
+Per `docs/adr/0002-examples-to-samples-migration.md`, the long-term direction is to
+declare all Ansible-specific sample content ourselves via each resource's own
+`overlay/products/<product>/<Resource>.yaml` `samples:` block, using an
+`ansible_`-prefixed name that can never collide with anything upstream declares -
+this makes our overlay content immune to whichever key (`examples:` vs `samples:`)
+a given upstream resource happens to use, and eliminates the need to reclassify
+file placement every time the pinned MMv1 commit changes.
 
 ### Module Naming
 
@@ -126,7 +159,7 @@ The list of products is currently defined in `config.yaml` the table below shoul
 | `cloudbuild` | Trigger *(tests skipped, info skipped)* |
 | `cloudbuildv2` | Connection, Repository *(tests skipped)* |
 | `colab` | NotebookExecution, Runtime, RuntimeTemplate, Schedule |
-| `vertexai` | Dataset, DeploymentResourcePool, Endpoint, EndpointWithModelGardenDeployment *(info skipped)*, FeatureGroup, FeatureGroupFeature, FeatureOnlineStore, FeatureOnlineStoreFeatureview, Featurestore, FeaturestoreEntitytype, FeaturestoreEntitytypeFeature, Index, IndexEndpoint, IndexEndpointDeployedIndex, MetadataStore, RagEngineConfig, ReasoningEngine, Tensorboard |
+| `vertexai` | Dataset, DeploymentResourcePool, Endpoint, EndpointWithModelGardenDeployment *(info skipped)*, FeatureGroup, FeatureGroupFeature, FeatureOnlineStore, FeatureOnlineStoreFeatureview, Featurestore, FeaturestoreEntitytype, FeaturestoreEntitytypeFeature, Index, IndexEndpoint, IndexEndpointDeployedIndex *(info skipped)*, MetadataStore, RagEngineConfig *(info skipped)*, ReasoningEngine, Tensorboard |
 
 The upstream MMv1 commit is pinned in `config.yaml` under `git.rev`; `git.pull` is
 `false` by default.
@@ -178,6 +211,15 @@ When modifying generation logic, the most relevant files are:
   files (NOT processed by MMv1; contains `custom_code` with `pre_read`, `post_read`,
   and `custom_import` hooks injected into the info module's `main()`)
 - **`config.yaml`** - which products/resources are generated and git settings
+
+## Architecture Decision Records
+
+Significant design decisions and migration plans are recorded as ADRs under
+`docs/adr/`, with an index and status legend in `docs/adr/README.md`. Consult
+these before undertaking any major refactor of the overlay system, the MMv1
+dependency version, or the examples/samples template layout - they capture
+non-obvious mechanics (e.g. exactly how MMv1's YAML merge behaves) that would
+otherwise need to be re-derived from the vendored `magic-modules` source each time.
 
 ## Coding Conventions
 

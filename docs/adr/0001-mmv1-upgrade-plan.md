@@ -1,4 +1,6 @@
-# Magic-Modules v1 (MMv1) Upgrade Plan
+# ADR 0001: Magic-Modules v1 (MMv1) Upgrade Plan
+
+**Status:** Executed (2026-07-14)
 
 This document outlines the plan to upgrade the `ansible-mmv1` generator to be compatible with a newer version of the upstream `magic-modules` dependency.
 
