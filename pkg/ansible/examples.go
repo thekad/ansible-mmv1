@@ -13,19 +13,19 @@ import (
 )
 
 type Examples struct {
-	DocExamples  []*mmv1resource.Examples
-	TestExamples []*mmv1resource.Examples
+	DocExamples  []*mmv1resource.Sample
+	TestExamples []*mmv1resource.Sample
 }
 
 func NewExamplesFromMmv1(mmv1 *mmv1api.Resource) *Examples {
-	docExamples := []*mmv1resource.Examples{}
-	testExamples := []*mmv1resource.Examples{}
-	for _, example := range mmv1.Examples {
-		if !example.ExcludeDocs {
-			docExamples = append(docExamples, example)
+	docExamples := []*mmv1resource.Sample{}
+	testExamples := []*mmv1resource.Sample{}
+	for _, sample := range mmv1.Samples {
+		if !sample.ExcludeBasicDoc {
+			docExamples = append(docExamples, sample)
 		}
-		if !example.ExcludeTest {
-			testExamples = append(testExamples, example)
+		if !sample.ExcludeTest {
+			testExamples = append(testExamples, sample)
 		}
 	}
 	return &Examples{
@@ -37,19 +37,31 @@ func NewExamplesFromMmv1(mmv1 *mmv1api.Resource) *Examples {
 func (e *Examples) ToString(which string) string {
 	separator := fmt.Sprintf("\n%s\n\n", strings.Repeat("#", 80))
 	exampleStrings := []string{}
-	examples := []*mmv1resource.Examples{}
+	samples := []*mmv1resource.Sample{}
 	switch which {
 	case "doc":
-		examples = e.DocExamples
+		samples = e.DocExamples
 	case "test":
-		examples = e.TestExamples
+		samples = e.TestExamples
 	}
-	for _, example := range examples {
-		if len(example.TestHCLText) <= 1 {
-			log.Info().Msgf("skipping empty example: %s", example.Name)
+	for _, sample := range samples {
+		// Use only the first step as the canonical create example
+		if len(sample.Steps) == 0 {
+			log.Info().Msgf("skipping sample with no steps: %s", sample.Name)
 			continue
 		}
-		exampleStrings = append(exampleStrings, example.TestHCLText)
+		step := sample.Steps[0]
+		var content string
+		if which == "doc" {
+			content = step.DocumentationHCLText
+		} else {
+			content = step.TestHCLText
+		}
+		if len(content) <= 1 {
+			log.Info().Msgf("skipping empty sample: %s", sample.Name)
+			continue
+		}
+		exampleStrings = append(exampleStrings, content)
 	}
 	return strings.Join(exampleStrings, separator)
 }

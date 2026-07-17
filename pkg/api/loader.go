@@ -47,21 +47,15 @@ func (a *ansibleExampleRedirectFS) ReadFile(name string) ([]byte, error) {
 			return b, nil
 		}
 		if errors.Is(err, fs.ErrNotExist) {
-			log.Debug().Str("terraform_path", name).Str("ansible_path", alt).
-				Msg("example template not found; falling back to TF path")
-		} else {
-			return nil, err
-		}
-		b2, err2 := a.inner.ReadFile(name)
-		if err2 == nil {
-			return b2, nil
-		}
-		if errors.Is(err2, fs.ErrNotExist) {
-			log.Warn().Str("terraform_path", name).
-				Msg("fallback example template not found; using empty content")
+			// Do not fall back to the Terraform template: TF templates reference
+			// `$.Vars` / `$.ResourceIdVars` keys that are not guaranteed to align
+			// with how Ansible samples/examples are structured, and reading them
+			// can trigger spurious "variable not defined" fatal errors upstream.
+			log.Warn().Str("terraform_path", name).Str("ansible_path", alt).
+				Msg("example template not found; using empty content")
 			return []byte{}, nil
 		}
-		return nil, err2
+		return nil, err
 	}
 
 	if isAnsibleExampleTemplatePath(name) {
@@ -81,22 +75,36 @@ func (a *ansibleExampleRedirectFS) ReadFile(name string) ([]byte, error) {
 }
 
 func isAnsibleExampleTemplatePath(name string) bool {
-	return strings.HasPrefix(name, AnsibleExamplesDir+"/") && strings.HasSuffix(name, ansibleExampleSuffix)
+	examplesMatch := strings.HasPrefix(name, AnsibleExamplesDir+"/") && strings.HasSuffix(name, ansibleExampleSuffix)
+	samplesMatch := strings.HasPrefix(name, AnsibleSamplesDir+"/") && strings.HasSuffix(name, ansibleExampleSuffix)
+	return examplesMatch || samplesMatch
 }
 
 func terraformExamplesToAnsible(terraformPath string) (ansiblePath string, ok bool) {
-	if !strings.HasPrefix(terraformPath, terraformExamplesDir) {
+	// Handle legacy examples: templates/terraform/examples/<name>.tf.tmpl -> templates/ansible/examples/<name>.tmpl
+	if strings.HasPrefix(terraformPath, terraformExamplesDir) {
+		rest := strings.TrimPrefix(terraformPath, terraformExamplesDir)
+		if strings.HasSuffix(rest, terraformExampleSuffix) {
+			stem := strings.TrimSuffix(rest, terraformExampleSuffix)
+			if stem != "" {
+				return path.Join(AnsibleExamplesDir, stem+ansibleExampleSuffix), true
+			}
+		}
 		return "", false
 	}
-	rest := strings.TrimPrefix(terraformPath, terraformExamplesDir)
-	if !strings.HasSuffix(rest, terraformExampleSuffix) {
+	// Handle new samples: templates/terraform/samples/services/<pkg>/<name>.tf.tmpl -> templates/ansible/samples/services/<pkg>/<name>.tmpl
+	if strings.HasPrefix(terraformPath, terraformSamplesDir) {
+		rest := strings.TrimPrefix(terraformPath, terraformSamplesDir)
+		if strings.HasSuffix(rest, terraformExampleSuffix) {
+			stem := strings.TrimSuffix(rest, terraformExampleSuffix)
+			// stem is "services/<pkg>/<name>" - preserve the full relative path
+			if stem != "" && stem != "." {
+				return path.Join(AnsibleSamplesDir, stem+ansibleExampleSuffix), true
+			}
+		}
 		return "", false
 	}
-	stem := strings.TrimSuffix(rest, terraformExampleSuffix)
-	if stem == "" {
-		return "", false
-	}
-	return path.Join(AnsibleExamplesDir, stem+ansibleExampleSuffix), true
+	return "", false
 }
 
 // LoadProducts loads Magic Modules products. If onlyProductShortNames is non-empty, only
@@ -196,14 +204,3 @@ func WrapResource(mmRes *mmv1api.Resource, parent *Product, mmRoot string) *Reso
 	}
 }
 
-// ReloadAnsibleExamples sets each example's config_path to AnsibleExamplesDir/<name>.tmpl
-// (merged overlay + mmv1 base FS) and re-runs upstream LoadHCLText so TestHCLText reflects Ansible templates.
-func ReloadAnsibleExamples(mmRes *mmv1api.Resource, sysfs fs.FS) error {
-	for _, ex := range mmRes.Examples {
-		ex.ConfigPath = path.Join(AnsibleExamplesDir, ex.Name+ansibleExampleSuffix)
-		if err := ex.LoadHCLText(sysfs); err != nil {
-			return fmt.Errorf("example %q: %w", ex.Name, err)
-		}
-	}
-	return nil
-}

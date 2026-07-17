@@ -81,7 +81,7 @@ func generateModule(templateData *renderer.TemplateData, job moduleJob, noFormat
 			}
 		}
 	}
-	if job.writeTests && len(m.Resource.Mmv1.Examples) > 0 {
+	if job.writeTests && len(m.Examples.TestExamples) > 0 {
 		log.Info().Msgf("generating tests for ansible module: %s", m)
 		if err := templateData.GenerateTests(m); err != nil {
 			return fmt.Errorf("generate tests for %s: %w", m.Name, err)
@@ -450,7 +450,7 @@ func runGenerate(cmd *cobra.Command, args []string) {
 		log.Info().Msgf("overlay directory: %s", overlayDir)
 	}
 
-	sysfs, loader, err := api.LoadProducts(mmv1Root, overlayDir, minVersion, configProductNames)
+	_, loader, err := api.LoadProducts(mmv1Root, overlayDir, minVersion, configProductNames)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to load Magic Modules (loader)")
 	}
@@ -486,10 +486,6 @@ func runGenerate(cmd *cobra.Command, args []string) {
 			// Second filter: CLI --resources (if any).
 			if len(cliResources) > 0 && !slices.Contains(cliResources, resLower) {
 				continue
-			}
-
-			if err := api.ReloadAnsibleExamples(mmRes, sysfs); err != nil {
-				log.Fatal().Err(err).Str("product", short).Str("resource", mmRes.Name).Msg("failed to load Ansible example templates")
 			}
 
 			r := api.WrapResource(mmRes, apiProd, mmv1Root)

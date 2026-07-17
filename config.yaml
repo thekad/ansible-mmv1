@@ -3,7 +3,7 @@ git:
   url: https://github.com/GoogleCloudPlatform/magic-modules
   dir: magic-modules
   # TODO: kept in sync with go.mod
-  rev: 953dea7fa4f7270bf92187ed59fd5395eb327188
+  rev: bc6456aef9d0eb887c2d386ff8f0fc94f7b83aff
   pull: false
 
 # Optional overlay (layout: products/, templates/) merged over base
