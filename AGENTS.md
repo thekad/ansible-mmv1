@@ -34,12 +34,10 @@ ansible-mmv1/
 │   ├── info/                   # Per-product/resource info module customization files
 │   │   └── vertexai/           # (NOT loaded by MMv1; read directly by NewInfoFromResource)
 │   └── templates/ansible/
-│       ├── examples/           # Legacy: Ansible YAML templates (.tmpl) for resources still on
-│       │                       # upstream's `examples:` key, or names shadowing an upstream
-│       │                       # `examples:` entry. Being phased out; see docs/adr/0002.
-│       └── samples/services/<pkg>/  # Ansible YAML templates (.tmpl) for resources using
-│                               # upstream's native `samples:` key. Preferred location for
-│                               # all new content (see docs/adr/0002).
+│       └── samples/
+│           ├── common/         # Shared/reusable step templates (e.g. network peering setup).
+│           │                   # Referenced via explicit config_path on a Step; ansible_-prefixed.
+│           └── services/<pkg>/ # Per-resource Ansible YAML templates (.tmpl); ansible_-prefixed.
 ├── pkg/
 │   ├── api/                    # MMv1 product/resource loading + overlay FS wrappers
 │   │   ├── api.go              # Product/Resource structs; AnsibleName() -> gcp_<prod>_<res>
@@ -101,30 +99,47 @@ Overlay YAML also supports `custom_code` blocks with hooks: `pre_read`, `post_re
 `pre_create`, `post_create`, `pre_update`, `pre_delete`, `post_delete`, `encoder`,
 `decoder`, `custom_import`, `custom_create`, `custom_update`, `custom_delete`.
 
-### Ansible Example/Sample Templates
+### Ansible Sample Templates
 
-`ansibleExampleRedirectFS` in `pkg/api/loader.go` transparently redirects the
-Terraform config paths MMv1 computes for each example/sample step to our own
-Ansible-specific templates:
+All Ansible-specific sample content is declared through each resource's own
+`overlay/products/<product>/<Resource>.yaml` `samples:` block using an `ansible_`-
+prefixed name that can never collide with anything upstream declares. This makes our
+overlay content immune to whichever key (`examples:` vs `samples:`) a given upstream
+resource happens to use. See `docs/adr/0002-examples-to-samples-migration.md`.
 
-- Legacy `examples:`-derived steps (`templates/terraform/examples/<name>.tf.tmpl`)
-  redirect to `overlay/templates/ansible/examples/<name>.tmpl`.
-- Native `samples:` steps (`templates/terraform/samples/services/<pkg>/<name>.tf.tmpl`)
-  redirect to `overlay/templates/ansible/samples/services/<pkg>/<name>.tmpl`.
+**Naming and placement rules - follow these for all new content:**
 
-If the corresponding Ansible template is not found in either case, the loader logs
-a warning and uses **empty** content (no fallback to the raw Terraform template -
-those reference `$.Vars`/`$.ResourceIdVars` in ways that don't align with our
-Ansible templates and can trigger spurious validation errors upstream). Empty
-content is filtered out downstream by `pkg/ansible/examples.go`'s `ToString()`.
+- Every sample and step name we declare is prefixed with `ansible_`, e.g.
+  `ansible_alloydb_backup_basic`. Names are never rendered into output, but the
+  prefix guarantees no collision with upstream.
+- Always use `samples:` in overlay YAML. Never use `examples:`. The `examples:` key
+  is a legacy MMv1 concept; our overlay no longer uses it.
+- Resource-specific templates live at
+  `overlay/templates/ansible/samples/services/<pkg>/ansible_<name>.tmpl`.
+- Shared/reusable step templates (e.g. VPC peering setup reused across multiple
+  resources) live at `overlay/templates/ansible/samples/common/ansible_<name>.tmpl`
+  and are referenced via an explicit `config_path` on the step:
+  ```yaml
+  steps:
+    - name: ansible_setup_network_peering
+      config_path: templates/ansible/samples/common/ansible_setup_network_peering.tmpl
+    - name: ansible_my_resource
+  ```
+- Simple samples have one step sharing the sample's name. Samples with a shared
+  prereq step have 2+ steps; the shared step(s) come first, the resource's own
+  step last. `Sample.Name` always matches the resource's own step name.
 
-Per `docs/adr/0002-examples-to-samples-migration.md`, the long-term direction is to
-declare all Ansible-specific sample content ourselves via each resource's own
-`overlay/products/<product>/<Resource>.yaml` `samples:` block, using an
-`ansible_`-prefixed name that can never collide with anything upstream declares -
-this makes our overlay content immune to whichever key (`examples:` vs `samples:`)
-a given upstream resource happens to use, and eliminates the need to reclassify
-file placement every time the pinned MMv1 commit changes.
+`ansibleExampleRedirectFS` in `pkg/api/loader.go` handles two path patterns:
+
+- Auto-derived terraform paths (`templates/terraform/samples/services/<pkg>/<name>.tf.tmpl`)
+  are redirected to `overlay/templates/ansible/samples/services/<pkg>/<name>.tmpl`.
+- Paths that already point into `templates/ansible/samples/` (explicit `config_path`
+  values, including `common/` shared templates) are read directly from the overlay FS
+  without redirection.
+
+If a template is not found, the loader logs a warning and uses **empty** content
+(no fallback to the raw Terraform template). Empty content is filtered out
+downstream by `pkg/ansible/examples.go`'s `ToString()`.
 
 ### Module Naming
 

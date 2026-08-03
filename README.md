@@ -64,19 +64,18 @@ go run .
 | `--log-level` | `-l` | `info` | Log level (trace, debug, info, warn, error, fatal) |
 | `--config` | `-C` | `config.yaml` | Path to config file |
 
-### Overlay: missing Ansible example/sample templates
+### Overlay: missing Ansible sample templates
 
-Each MMv1 example/sample step resolves to a Terraform config path, which the
-loader redirects to an Ansible-specific template: legacy `examples:` steps look
-for `overlay/templates/ansible/examples/<name>.tmpl`, and native `samples:` steps
-look for `overlay/templates/ansible/samples/services/<pkg>/<name>.tmpl`. If the
+Each MMv1 sample step resolves to a Terraform config path, which the loader
+redirects to `overlay/templates/ansible/samples/services/<pkg>/ansible_<name>.tmpl`.
+Steps with an explicit `config_path` pointing into `templates/ansible/samples/`
+(e.g. shared common templates) are read directly from the overlay FS. If the
 corresponding Ansible template is missing, the loader logs a **warning** and uses
-**empty** content instead of failing or falling back to the raw Terraform
-template (Terraform templates reference variables in a way that doesn't align
-with Ansible generation and can trigger spurious errors upstream).
+**empty** content instead of failing or falling back to the raw Terraform template
+(Terraform templates reference variables in a way that doesn't align with Ansible
+generation and can trigger spurious errors upstream).
 
-See `docs/adr/0002-examples-to-samples-migration.md` for the plan to consolidate
-all Ansible-specific content under `samples:` going forward.
+See `docs/adr/0002-examples-to-samples-migration.md` for the full design.
 
 ### Loading scope: `--products` vs `--resources`
 

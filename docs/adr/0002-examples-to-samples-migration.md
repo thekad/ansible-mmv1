@@ -1,6 +1,6 @@
 # ADR 0002: Migrate Ansible Overlay Content from `examples:` to `samples:`
 
-**Status:** Proposed (2026-07-16)
+**Status:** Executed (2026-08-03)
 
 ## Motivation
 
@@ -97,14 +97,64 @@ cloudbuild_trigger_filename  -> ansible_cloudbuild_trigger_filename
 ```
 
 Rules:
-- One sample = one step, sharing the identical name (no multi-step Ansible tests
-  today; if that ever changes, revisit this convention).
-- Template filenames match the new name exactly, e.g. `ansible_vertex_ai_dataset.tmpl`.
-- Templates live under `overlay/templates/ansible/samples/services/<pkg>/`, where
+- **Resource-specific templates** live under
+  `overlay/templates/ansible/samples/services/<pkg>/ansible_<name>.tmpl`, where
   `<pkg>` is the lowercase product directory name (matches MMv1's own
   `packageName := filepath.Base(filepath.Dir(r.SourceYamlFile))` derivation).
+- **Shared/reusable templates** live under
+  `overlay/templates/ansible/samples/common/ansible_<name>.tmpl` - one level up,
+  not under `services/`. See the next section for details.
+- For simple (non-shared) samples: one sample = one step, sharing the identical
+  `ansible_`-prefixed name.
+- For samples that use a shared prereq step: the sample carries 2+ steps - shared
+  steps first (with explicit `config_path`), the resource's own step last. The
+  `Sample.Name` is still named after the resource's own step.
 - The legacy `overlay/templates/ansible/examples/` directory is retired entirely
   once migration is complete.
+
+## Shared/reusable step templates
+
+Some prerequisite setups (e.g. VPC network peering) are identical across multiple
+resources. Rather than duplicating content, a single template file can be shared by
+pointing multiple steps at it via the `config_path` field on `Step`.
+
+**How it works:** `ansibleExampleRedirectFS.ReadFile` has two branches. The first
+handles the auto-derived terraform path (redirect). The second - `isAnsibleExampleTemplatePath`
+- detects any path already starting with `templates/ansible/samples/` and reads it
+directly from the overlay FS without any redirection. Setting `config_path`
+explicitly to a `templates/ansible/...` path hits this second branch, so the file
+is read verbatim from wherever it actually lives. No fictional terraform path is
+needed.
+
+**Convention:**
+
+```yaml
+# overlay/products/vertexai/IndexEndpoint.yaml
+samples:
+  - name: ansible_vertex_ai_index_endpoint
+    exclude_test: true
+    steps:
+      - name: ansible_setup_network_peering
+        config_path: templates/ansible/samples/common/ansible_setup_network_peering.tmpl
+      - name: ansible_vertex_ai_index_endpoint
+```
+
+- Shared templates live at `overlay/templates/ansible/samples/common/ansible_<name>.tmpl`
+  (`common/` is a sibling of `services/`, not nested under it).
+- The `config_path` value is the literal overlay-relative path with a `.tmpl`
+  suffix (not a `.tf.tmpl` path - no redirection is involved).
+- The `ansible_` prefix applies to shared template filenames, same as all other
+  Ansible-authored content.
+- Shared step `name` values are descriptive and unique within their sample but do
+  not need to be globally unique across resources - they never render into output.
+- `Sample.Name` is always named after the resource's own primary step, regardless
+  of how many shared prereq steps precede it.
+
+**Variable validation note:** `Step.ExecuteTemplate` validates that any
+`{{index $.Vars "..."}}` / `{{index $.ResourceIdVars "..."}}` /
+`{{index $.TestEnvVars "..."}}` references in the template file are declared on
+the step. Ansible templates are static YAML and never use these MMv1 patterns, so
+the validation passes trivially for any shared template.
 
 ## Field mapping
 
@@ -144,7 +194,10 @@ samples:
 
 ## Complete per-resource scope
 
-**25 resources - pure rename** of existing overlay `examples:` entries into
+25 resources currently carry an `examples:` overlay block and are handled in two
+groups:
+
+**20 resources - pure rename** of existing overlay `examples:` entries into
 equivalent `samples:` entries (no new entries needed, every currently-authored
 `.tmpl` file already has a shadowing overlay declaration):
 
@@ -157,7 +210,7 @@ equivalent `samples:` entries (no new entries needed, every currently-authored
 `vertexai/IndexEndpointDeployedIndex`, `vertexai/Index`, `vertexai/ReasoningEngine`,
 `vertexai/Tensorboard`
 
-**6 resources - mixed** (rename existing shadowed entries, add new entries for
+**5 resources - mixed** (rename existing shadowed entries, add new entries for
 files that currently rely on matching upstream's native name directly):
 
 | Resource | Existing (rename) | New (add) |
@@ -193,16 +246,21 @@ template files across all 35 resource YAML files.
    lines - rather than a full YAML parse+re-serialize, because several of these
    files contain large embedded Python `custom_code` string blocks whose exact
    formatting/comments must be preserved byte-for-byte.
-3. **Rename and relocate template files**: `git mv` all 79 `.tmpl` files to
-   `overlay/templates/ansible/samples/services/<pkg>/ansible_<old-name>.tmpl`.
+3. **Rename and relocate template files**: `git mv` all 79 `.tmpl` files.
+   Resource-specific templates go to
+   `overlay/templates/ansible/samples/services/<pkg>/ansible_<old-name>.tmpl`;
+   any shared/common templates (introduced now or in future) go to
+   `overlay/templates/ansible/samples/common/ansible_<name>.tmpl`.
 4. **Delete** the now-empty `overlay/templates/ansible/examples/` directory.
 5. **Simplify the redirect code** in `pkg/api/loader.go`/`pkg/api/constants.go`:
    remove the legacy-`examples:` branch of `terraformExamplesToAnsible`, the
-   `AnsibleExamplesDir`/`terraformExamplesDir`/`terraformExampleSuffix` constants,
-   and the `examples:`-path check in `isAnsibleExampleTemplatePath` - leaving only
-   the `samples/services/<pkg>/` redirect path. No changes needed in
-   `pkg/ansible/examples.go` (`NewExamplesFromMmv1` already only reads
-   `mmv1.Samples`, not `mmv1.Examples`, from earlier work).
+   `AnsibleExamplesDir` and `terraformExamplesDir` constants, and the
+   `examples:`-path check in `isAnsibleExampleTemplatePath` - leaving only the
+   `samples/` redirect path (which covers both `services/<pkg>/` and `common/`).
+   Note: `terraformExampleSuffix` (`.tf.tmpl`) is retained - it is still used by
+   the samples redirect branch. No changes needed in `pkg/ansible/examples.go`
+   (`NewExamplesFromMmv1` already only reads `mmv1.Samples`, not `mmv1.Examples`,
+   from earlier work).
 6. **Document the convention** in `AGENTS.md`: add a section describing the
    `ansible_` prefix rule and the "always use `samples:`, never `examples:`"
    policy for all future resource onboarding.
