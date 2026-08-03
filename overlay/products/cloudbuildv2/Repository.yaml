@@ -24,3 +24,24 @@ custom_code:
     return r
 
   encoder: _drop
+samples:
+  - name: ansible_cloudbuildv2_repository_ghe
+    exclude_basic_doc: true
+    steps:
+      - name: ansible_cloudbuildv2_repository_ghe
+  - name: ansible_cloudbuildv2_repository_github
+    exclude_basic_doc: true
+    steps:
+      - name: ansible_cloudbuildv2_repository_github
+  - name: ansible_cloudbuildv2_repository_gle
+    exclude_basic_doc: true
+    steps:
+      - name: ansible_cloudbuildv2_repository_gle
+  - name: ansible_cloudbuildv2_repository_ghe_doc
+    exclude_test: true
+    steps:
+      - name: ansible_cloudbuildv2_repository_ghe_doc
+  - name: ansible_cloudbuildv2_repository_github_doc
+    exclude_test: true
+    steps:
+      - name: ansible_cloudbuildv2_repository_github_doc

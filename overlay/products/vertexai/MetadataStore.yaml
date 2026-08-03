@@ -1,6 +1,12 @@
-examples:
-  - name: vertex_ai_metadata_store_test
-    exclude_docs: true
+samples:
+  - name: ansible_vertex_ai_metadata_store_test
+    exclude_basic_doc: true
+    steps:
+      - name: ansible_vertex_ai_metadata_store_test
+  - name: ansible_vertex_ai_metadata_store
+    exclude_test: true
+    steps:
+      - name: ansible_vertex_ai_metadata_store
 
 custom_code:
   pre_update: |

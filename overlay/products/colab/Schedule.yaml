@@ -9,13 +9,19 @@ virtual_fields:
       - ACTIVE
       - PAUSED
     default_value: ACTIVE
-examples:
-  - name: colab_schedule_basic
+samples:
+  - name: ansible_colab_schedule_basic
     exclude_test: true
-  - name: colab_schedule_paused
+    steps:
+      - name: ansible_colab_schedule_basic
+  - name: ansible_colab_schedule_paused
     exclude_test: true
-  - name: colab_schedule_full
-    exclude_docs: true
+    steps:
+      - name: ansible_colab_schedule_paused
+  - name: ansible_colab_schedule_full
+    exclude_basic_doc: true
+    steps:
+      - name: ansible_colab_schedule_full
 custom_code:
   custom_import: |
     import copy

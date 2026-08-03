@@ -19,3 +19,22 @@ custom_code:
       module.url_params["trigger_id"] = existing_obj["id"]
     else:
       module.url_params["trigger_id"] = existing_obj["name"].split("/")[-1]
+samples:
+  - name: ansible_cloudbuild_trigger_filename
+    steps:
+      - name: ansible_cloudbuild_trigger_filename
+  - name: ansible_cloudbuild_trigger_build
+    steps:
+      - name: ansible_cloudbuild_trigger_build
+  - name: ansible_cloudbuild_trigger_pubsub_config
+    steps:
+      - name: ansible_cloudbuild_trigger_pubsub_config
+  - name: ansible_cloudbuild_trigger_webhook_config
+    steps:
+      - name: ansible_cloudbuild_trigger_webhook_config
+  - name: ansible_cloudbuild_trigger_manual
+    steps:
+      - name: ansible_cloudbuild_trigger_manual
+  - name: ansible_cloudbuild_trigger_repo
+    steps:
+      - name: ansible_cloudbuild_trigger_repo

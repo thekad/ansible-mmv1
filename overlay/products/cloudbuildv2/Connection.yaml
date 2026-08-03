@@ -1,7 +1,17 @@
 ---
-examples:
-  - name: cloudbuildv2_connection_gitlab
+samples:
+  - name: ansible_cloudbuildv2_connection_ghe
     exclude_test: true
+    steps:
+      - name: ansible_cloudbuildv2_connection_ghe
+  - name: ansible_cloudbuildv2_connection_github
+    exclude_test: true
+    steps:
+      - name: ansible_cloudbuildv2_connection_github
+  - name: ansible_cloudbuildv2_connection_gitlab
+    exclude_test: true
+    steps:
+      - name: ansible_cloudbuildv2_connection_gitlab
 custom_code:
   custom_import: |
     import copy
@@ -27,4 +37,3 @@ custom_code:
       r["githubEnterpriseConfig"]["appInstallationId"] = int(response["githubEnterpriseConfig"]["appInstallationId"])
 
     return r
-

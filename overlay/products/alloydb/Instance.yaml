@@ -5,11 +5,15 @@ custom_code:
   custom_import: _drop
   pre_create: _drop
   pre_delete: _drop
-examples:
-  - name: alloydb_instance_basic
+samples:
+  - name: ansible_alloydb_instance_basic
     exclude_test: true
-  - name: alloydb_instance_basic_test
-    exclude_docs: true
+    steps:
+      - name: ansible_alloydb_instance_basic
+  - name: ansible_alloydb_instance_basic_test
+    exclude_basic_doc: true
+    steps:
+      - name: ansible_alloydb_instance_basic_test
 properties:
   - name: instanceType
     required: true

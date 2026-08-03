@@ -18,9 +18,13 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// ansibleExampleRedirectFS wraps the merged mmv1 FS so that reads of Terraform example
-// templates (templates/terraform/examples/<name>.tf.tmpl) are satisfied from Ansible
-// examples (templates/ansible/examples/<name>.tmpl) when present.
+// ansibleExampleRedirectFS wraps the merged mmv1 FS so that reads of auto-derived
+// Terraform sample paths (templates/terraform/samples/services/<pkg>/<name>.tf.tmpl)
+// are redirected to the corresponding Ansible template
+// (templates/ansible/samples/services/<pkg>/<name>.tmpl). Paths that already point
+// directly into templates/ansible/samples/ (e.g. shared common templates referenced
+// via an explicit config_path) are read verbatim from the overlay FS without
+// redirection.
 type ansibleExampleRedirectFS struct {
 	inner google.ReadDirReadFileFS
 }
@@ -41,18 +45,25 @@ func (a *ansibleExampleRedirectFS) ReadDir(name string) ([]fs.DirEntry, error) {
 }
 
 func (a *ansibleExampleRedirectFS) ReadFile(name string) ([]byte, error) {
+	// Silence upstream-native examples: entries that we have not authored Ansible
+	// content for. These paths are produced by upstream resources that still declare
+	// their samples under the legacy `examples:` YAML key. We cannot delete those
+	// upstream declarations, and their Terraform templates contain variables
+	// (`$.Vars` / `$.ResourceIdVars`) that are incompatible with Ansible generation
+	// and would cause fatal validation errors if read. Return empty content so they
+	// are filtered out downstream by `pkg/ansible/examples.go`'s `ToString()`.
+	if strings.HasPrefix(name, "templates/terraform/examples/") {
+		return []byte{}, nil
+	}
+
 	if alt, ok := terraformExamplesToAnsible(name); ok {
 		b, err := a.inner.ReadFile(alt)
 		if err == nil {
 			return b, nil
 		}
 		if errors.Is(err, fs.ErrNotExist) {
-			// Do not fall back to the Terraform template: TF templates reference
-			// `$.Vars` / `$.ResourceIdVars` keys that are not guaranteed to align
-			// with how Ansible samples/examples are structured, and reading them
-			// can trigger spurious "variable not defined" fatal errors upstream.
 			log.Warn().Str("terraform_path", name).Str("ansible_path", alt).
-				Msg("example template not found; using empty content")
+				Msg("sample template not found; using empty content")
 			return []byte{}, nil
 		}
 		return nil, err
@@ -75,24 +86,11 @@ func (a *ansibleExampleRedirectFS) ReadFile(name string) ([]byte, error) {
 }
 
 func isAnsibleExampleTemplatePath(name string) bool {
-	examplesMatch := strings.HasPrefix(name, AnsibleExamplesDir+"/") && strings.HasSuffix(name, ansibleExampleSuffix)
-	samplesMatch := strings.HasPrefix(name, AnsibleSamplesDir+"/") && strings.HasSuffix(name, ansibleExampleSuffix)
-	return examplesMatch || samplesMatch
+	return strings.HasPrefix(name, AnsibleSamplesDir+"/") && strings.HasSuffix(name, ansibleExampleSuffix)
 }
 
 func terraformExamplesToAnsible(terraformPath string) (ansiblePath string, ok bool) {
-	// Handle legacy examples: templates/terraform/examples/<name>.tf.tmpl -> templates/ansible/examples/<name>.tmpl
-	if strings.HasPrefix(terraformPath, terraformExamplesDir) {
-		rest := strings.TrimPrefix(terraformPath, terraformExamplesDir)
-		if strings.HasSuffix(rest, terraformExampleSuffix) {
-			stem := strings.TrimSuffix(rest, terraformExampleSuffix)
-			if stem != "" {
-				return path.Join(AnsibleExamplesDir, stem+ansibleExampleSuffix), true
-			}
-		}
-		return "", false
-	}
-	// Handle new samples: templates/terraform/samples/services/<pkg>/<name>.tf.tmpl -> templates/ansible/samples/services/<pkg>/<name>.tmpl
+	// templates/terraform/samples/services/<pkg>/<name>.tf.tmpl -> templates/ansible/samples/services/<pkg>/<name>.tmpl
 	if strings.HasPrefix(terraformPath, terraformSamplesDir) {
 		rest := strings.TrimPrefix(terraformPath, terraformSamplesDir)
 		if strings.HasSuffix(rest, terraformExampleSuffix) {
@@ -203,4 +201,3 @@ func WrapResource(mmRes *mmv1api.Resource, parent *Product, mmRoot string) *Reso
 		Parent: parent,
 	}
 }
-

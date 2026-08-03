@@ -6,18 +6,23 @@ parameters:
     required: true
     url_param_only: true
     immutable: true
-examples:
-  - name: vertex_ai_index_endpoint_deployed_index_basic
+samples:
+  - name: ansible_vertex_ai_index_endpoint_deployed_index_basic
     exclude_test: true
-  - name: vertex_ai_index_endpoint_deployed_index_automatic_resources
+    steps:
+      - name: ansible_vertex_ai_index_endpoint_deployed_index_basic
+  - name: ansible_vertex_ai_index_endpoint_deployed_index_automatic_resources
     exclude_test: true
-    exclude_docs: false
-  - name: vertex_ai_index_endpoint_deployed_index_dedicated_resources
+    steps:
+      - name: ansible_vertex_ai_index_endpoint_deployed_index_automatic_resources
+  - name: ansible_vertex_ai_index_endpoint_deployed_index_dedicated_resources
     exclude_test: true
-    exclude_docs: false
-  - name: vertex_ai_index_endpoint_deployed_index_test
-    exclude_test: false
-    exclude_docs: true
+    steps:
+      - name: ansible_vertex_ai_index_endpoint_deployed_index_dedicated_resources
+  - name: ansible_vertex_ai_index_endpoint_deployed_index_test
+    exclude_basic_doc: true
+    steps:
+      - name: ansible_vertex_ai_index_endpoint_deployed_index_test
 custom_code:
   custom_import: |
     import copy

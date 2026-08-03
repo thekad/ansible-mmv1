@@ -23,3 +23,7 @@ custom_code:
     # need to set to the required parameter "name" to the existing resource name
     resource.url_params["name"] = existing_obj["name"]
 
+samples:
+  - name: ansible_vertex_ai_dataset
+    steps:
+      - name: ansible_vertex_ai_dataset

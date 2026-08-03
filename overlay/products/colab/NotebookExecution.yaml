@@ -1,13 +1,21 @@
 ---
-examples:
-  - name: colab_notebook_execution_basic
+samples:
+  - name: ansible_colab_notebook_execution_basic
     exclude_test: true
-  - name: colab_notebook_execution_custom_env
+    steps:
+      - name: ansible_colab_notebook_execution_basic
+  - name: ansible_colab_notebook_execution_custom_env
     exclude_test: true
-  - name: colab_notebook_execution_dataform
+    steps:
+      - name: ansible_colab_notebook_execution_custom_env
+  - name: ansible_colab_notebook_execution_dataform
     exclude_test: true
-  - name: colab_notebook_execution_full
-    exclude_docs: true
+    steps:
+      - name: ansible_colab_notebook_execution_dataform
+  - name: ansible_colab_notebook_execution_full
+    exclude_basic_doc: true
+    steps:
+      - name: ansible_colab_notebook_execution_full
 custom_code:
   pre_read: |
     # for this module, we're hitting the list endpoint and filtering on display name

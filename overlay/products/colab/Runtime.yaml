@@ -1,11 +1,17 @@
 ---
-examples:
-  - name: colab_runtime_basic
+samples:
+  - name: ansible_colab_runtime_basic
     exclude_test: true
-  - name: colab_runtime_stopped
+    steps:
+      - name: ansible_colab_runtime_basic
+  - name: ansible_colab_runtime_stopped
     exclude_test: true
-  - name: colab_runtime_full
-    exclude_docs: true
+    steps:
+      - name: ansible_colab_runtime_stopped
+  - name: ansible_colab_runtime_full
+    exclude_basic_doc: true
+    steps:
+      - name: ansible_colab_runtime_full
 virtual_fields:
   - name: desired_state
     description: |

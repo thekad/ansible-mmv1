@@ -1,10 +1,14 @@
 ---
 update_verb: PATCH
-examples:
-  - name: vertex_ai_deployment_resource_pool
+samples:
+  - name: ansible_vertex_ai_deployment_resource_pool
     exclude_test: true
-  - name: vertex_ai_deployment_resource_pool_test
-    exclude_docs: true
+    steps:
+      - name: ansible_vertex_ai_deployment_resource_pool
+  - name: ansible_vertex_ai_deployment_resource_pool_test
+    exclude_basic_doc: true
+    steps:
+      - name: ansible_vertex_ai_deployment_resource_pool_test
 custom_code:
   custom_import: |
     import copy

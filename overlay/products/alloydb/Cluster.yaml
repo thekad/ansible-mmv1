@@ -37,10 +37,16 @@ custom_code:
     update_link = resource.build_link("update") + "?updateMask=" + ",".join(resource.dot_fields())
 
   pre_delete: _drop
-examples:
-  - name: alloydb_cluster_basic
+samples:
+  - name: ansible_alloydb_cluster_basic
     exclude_test: true
-  - name: alloydb_secondary_cluster_basic
+    steps:
+      - name: ansible_alloydb_cluster_basic
+  - name: ansible_alloydb_secondary_cluster_basic
     exclude_test: true
-  - name: alloydb_secondary_cluster_basic_test
-    exclude_docs: true
+    steps:
+      - name: ansible_alloydb_secondary_cluster_basic
+  - name: ansible_alloydb_secondary_cluster_basic_test
+    exclude_basic_doc: true
+    steps:
+      - name: ansible_alloydb_secondary_cluster_basic_test

@@ -1,7 +1,17 @@
 ---
-examples:
-  - name: vertex_ai_index_endpoint_with_public_endpoint
+samples:
+  - name: ansible_vertex_ai_index_endpoint
     exclude_test: true
+    steps:
+      - name: ansible_vertex_ai_index_endpoint
+  - name: ansible_vertex_ai_index_endpoint_with_public_endpoint
+    exclude_test: true
+    steps:
+      - name: ansible_vertex_ai_index_endpoint_with_public_endpoint
+  - name: ansible_vertex_ai_index_endpoint_test
+    exclude_basic_doc: true
+    steps:
+      - name: ansible_vertex_ai_index_endpoint_test
 custom_code:
   pre_read: |
     # for this module, we're hitting the list endpoint and filtering on display name and rebuild the link
@@ -25,4 +35,3 @@ custom_code:
   pre_delete: |
     # need to set to the required parameter "name" to the existing resource name
     resource.url_params["name"] = existing_obj["name"].split("/")[-1]
-

@@ -1,9 +1,13 @@
 ---
-examples:
-  - name: vertex_ai_feature_online_store
+samples:
+  - name: ansible_vertex_ai_feature_online_store
     exclude_test: true
-  - name: vertex_ai_feature_online_store_test
-    exclude_docs: true
+    steps:
+      - name: ansible_vertex_ai_feature_online_store
+  - name: ansible_vertex_ai_feature_online_store_test
+    exclude_basic_doc: true
+    steps:
+      - name: ansible_vertex_ai_feature_online_store_test
 
 custom_code:
   pre_delete: |

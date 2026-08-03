@@ -1,9 +1,13 @@
 ---
-examples:
-  - name: vertex_ai_featurestore_entitytype_feature
+samples:
+  - name: ansible_vertex_ai_featurestore_entitytype_feature
     exclude_test: true
-  - name: vertex_ai_featurestore_entitytype_feature_test
-    exclude_docs: true
+    steps:
+      - name: ansible_vertex_ai_featurestore_entitytype_feature
+  - name: ansible_vertex_ai_featurestore_entitytype_feature_test
+    exclude_basic_doc: true
+    steps:
+      - name: ansible_vertex_ai_featurestore_entitytype_feature_test
 properties:
   - name: name
     type: String

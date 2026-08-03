@@ -1,9 +1,13 @@
 ---
-examples:
-  - name: colab_runtime_template_basic
+samples:
+  - name: ansible_colab_runtime_template_basic
     exclude_test: true
-  - name: colab_runtime_template_full
-    exclude_docs: true
+    steps:
+      - name: ansible_colab_runtime_template_basic
+  - name: ansible_colab_runtime_template_full
+    exclude_basic_doc: true
+    steps:
+      - name: ansible_colab_runtime_template_full
 properties:
   - name: name
     type: String

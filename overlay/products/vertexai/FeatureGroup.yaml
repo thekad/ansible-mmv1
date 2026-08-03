@@ -1,9 +1,13 @@
 ---
-examples:
-  - name: vertex_ai_feature_group
+samples:
+  - name: ansible_vertex_ai_feature_group
     exclude_test: true
-  - name: vertex_ai_feature_group_test
-    exclude_docs: true
+    steps:
+      - name: ansible_vertex_ai_feature_group
+  - name: ansible_vertex_ai_feature_group_test
+    exclude_basic_doc: true
+    steps:
+      - name: ansible_vertex_ai_feature_group_test
 custom_code:
   custom_import: |
     import copy
