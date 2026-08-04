@@ -62,7 +62,7 @@ go run .
 | `--overwrite` | | `false` | Overwrite existing files |
 | `--min-version` | | `beta` | Minimum version to generate |
 | `--log-level` | `-l` | `info` | Log level (trace, debug, info, warn, error, fatal) |
-| `--config` | `-C` | `config.yaml` | Path to config file |
+| `--config` | `-C` | first of `.ansible-mmv1.yaml`, `ansible-mmv1.yaml`, `mmv1-config.yaml` | Path to config file |
 
 ### Overlay: missing Ansible sample templates
 
@@ -176,7 +176,7 @@ go run . --no-git-clone --products cloudbuildv2
 Load settings from a configuration file:
 
 ```bash
-go run . --config config.yaml
+go run . --config mmv1-config.yaml
 ```
 
 ## Overrides
@@ -222,7 +222,7 @@ parameters:
 
 ### Per-product Config Options
 
-In `config.yaml`, each product entry supports these optional skip directives:
+In `mmv1-config.yaml`, each product entry supports these optional skip directives:
 
 ```yaml
 products:

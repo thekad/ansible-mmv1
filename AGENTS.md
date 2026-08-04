@@ -21,7 +21,7 @@ Ansible collection modules.
 ```
 ansible-mmv1/
 ├── main.go                     # CLI entry point (cobra + viper); git clone + worker pool
-├── config.yaml                 # Primary runtime config (pinned MMv1 commit, product list)
+├── mmv1-config.yaml            # Primary runtime config (pinned MMv1 commit, product list)
 ├── go.mod / go.sum             # Go 1.26 module; key deps: cobra, viper, zerolog, go-git
 ├── docs/adr/                   # Architecture Decision Records (design decisions, migration plans)
 ├── overlay/                    # Local YAML + template overrides layered over the MMv1 clone
@@ -166,7 +166,7 @@ workers finish.
 
 ## Products Currently Configured
 
-The list of products is currently defined in `config.yaml` the table below should be kept up to date by the agent based on the config file
+The list of products is currently defined in `mmv1-config.yaml` the table below should be kept up to date by the agent based on the config file
 
 | Product | Resources |
 |---|---|
@@ -176,7 +176,7 @@ The list of products is currently defined in `config.yaml` the table below shoul
 | `colab` | NotebookExecution, Runtime, RuntimeTemplate, Schedule |
 | `vertexai` | Dataset, DeploymentResourcePool, Endpoint, EndpointWithModelGardenDeployment *(info skipped)*, FeatureGroup, FeatureGroupFeature, FeatureOnlineStore, FeatureOnlineStoreFeatureview, Featurestore, FeaturestoreEntitytype, FeaturestoreEntitytypeFeature, Index, IndexEndpoint, IndexEndpointDeployedIndex *(info skipped)*, MetadataStore, RagEngineConfig *(info skipped)*, ReasoningEngine, Tensorboard |
 
-The upstream MMv1 commit is pinned in `config.yaml` under `git.rev`; `git.pull` is
+The upstream MMv1 commit is pinned in `mmv1-config.yaml` under `git.rev`; `git.pull` is
 `false` by default.
 
 ## Common Commands
@@ -186,10 +186,10 @@ The upstream MMv1 commit is pinned in `config.yaml` under `git.rev`; `git.pull` 
 go build .
 
 # Run with config file (most common during development)
-go run . --config config.yaml
+go run . --config mmv1-config.yaml
 
 # Skip git clone if already cloned
-go run . --config config.yaml --no-git-clone
+go run . --config mmv1-config.yaml --no-git-clone
 
 # Generate a single product, skip formatting
 go run . --products vertexai --no-format
@@ -198,10 +198,10 @@ go run . --products vertexai --no-format
 go run . --products alloydb --resources cluster
 
 # Skip test generation
-go run . --config config.yaml --no-tests
+go run . --config mmv1-config.yaml --no-tests
 
 # Debug logging
-go run . --config config.yaml --log-level debug
+go run . --config mmv1-config.yaml --log-level debug
 
 # Run tests
 go test ./...
@@ -225,7 +225,7 @@ When modifying generation logic, the most relevant files are:
 - **`overlay/info/<product>/<resource>.yaml`** - per-resource info module customization
   files (NOT processed by MMv1; contains `custom_code` with `pre_read`, `post_read`,
   and `custom_import` hooks injected into the info module's `main()`)
-- **`config.yaml`** - which products/resources are generated and git settings
+- **`mmv1-config.yaml`** - which products/resources are generated and git settings
 
 ## Architecture Decision Records
 
