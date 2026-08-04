@@ -47,6 +47,7 @@ go run .
 |------|-------|---------|-------------|
 | `--git-url` | | `https://github.com/GoogleCloudPlatform/magic-modules` | Git repository to clone |
 | `--git-dir` | | `magic-modules` | Path to clone magic modules repo |
+| `--git-mmv1-dir` | | `mmv1` | Subdirectory inside the cloned repo containing the mmv1 YAML files |
 | `--git-rev` | | `main` | Git revision to checkout |
 | `--git-pull` | | `false` | Git pull before checkout |
 | `--no-git-clone` | | `false` | Skip git clone/checkout (use existing git directory) |

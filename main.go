@@ -198,6 +198,7 @@ func init() {
 	// Git flags
 	rootCmd.Flags().String("git-url", MMV1_REPO, "git repository to clone")
 	rootCmd.Flags().String("git-dir", "magic-modules", "path to clone magic modules repo")
+	rootCmd.Flags().String("git-mmv1-dir", "mmv1", "subdirectory inside the cloned repo containing the mmv1 YAML files")
 	rootCmd.Flags().String("git-rev", "main", "git revision to checkout")
 	rootCmd.Flags().Bool("git-pull", false, "git pull before checkout")
 	rootCmd.Flags().Bool("no-git-clone", false, "skip git clone/checkout (use existing git directory)")
@@ -226,6 +227,7 @@ func init() {
 	// Bind flags to viper (only for options that can come from config file).
 	mustBindPFlag("git.url", "git-url")
 	mustBindPFlag("git.dir", "git-dir")
+	mustBindPFlag("git.mmv1-dir", "git-mmv1-dir")
 	mustBindPFlag("git.rev", "git-rev")
 	mustBindPFlag("git.pull", "git-pull")
 	mustBindPFlag("output", "output")
@@ -476,7 +478,8 @@ func runGenerate(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	mmv1Root := filepath.Join(absGitDir, "mmv1")
+	gitMMV1Dir := viper.GetString("git.mmv1-dir")
+	mmv1Root := filepath.Join(absGitDir, gitMMV1Dir)
 	log.Info().Msgf("mmv1 base directory: %s", mmv1Root)
 	if overlayDir == "" {
 		log.Info().Msg("overlay directory: (none)")

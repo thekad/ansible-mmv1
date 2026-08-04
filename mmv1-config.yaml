@@ -2,6 +2,7 @@
 git:
   url: https://github.com/GoogleCloudPlatform/magic-modules
   dir: magic-modules
+  # mmv1-dir: mmv1
   # TODO: kept in sync with go.mod
   rev: bc6456aef9d0eb887c2d386ff8f0fc94f7b83aff
   pull: false
