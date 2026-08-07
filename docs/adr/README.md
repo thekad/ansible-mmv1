@@ -18,7 +18,7 @@ scratch.
 | ADR | Title | Status |
 |---|---|---|
 | [0001](0001-mmv1-upgrade-plan.md) | Magic-Modules v1 (MMv1) Upgrade Plan | Executed (2026-07-14) |
-| [0002](0002-examples-to-samples-migration.md) | Migrate Ansible Overlay Content from `examples:` to `samples:` | Proposed (2026-07-16) |
+| [0002](0002-examples-to-samples-migration.md) | Migrate Ansible Overlay Content from `examples:` to `samples:` | Executed (2026-08-03) |
 
 ## Adding a new ADR
 
