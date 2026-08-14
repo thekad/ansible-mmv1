@@ -19,6 +19,7 @@ scratch.
 |---|---|---|
 | [0001](0001-mmv1-upgrade-plan.md) | Magic-Modules v1 (MMv1) Upgrade Plan | Executed (2026-07-14) |
 | [0002](0002-examples-to-samples-migration.md) | Migrate Ansible Overlay Content from `examples:` to `samples:` | Executed (2026-08-03) |
+| [0003](0003-decouple-templates-from-engine.md) | Decouple Templates and Overlay from the Generator Engine | Proposed (2026-08-13) |
 
 ## Adding a new ADR
 
