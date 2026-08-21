@@ -269,7 +269,7 @@ func initLogging(cmd *cobra.Command) {
 }
 
 // configCandidates is the ordered list of filenames tried when no --config flag is given.
-var configCandidates = []string{".ansible-mmv1.yaml", "ansible-mmv1.yaml", "mmv1-config.yaml"}
+var configCandidates = []string{".ansible-mmv1.yaml", filepath.Join(".ansible-mmv1", "config.yaml"), "ansible-mmv1.yaml", "mmv1-config.yaml"}
 
 func initConfig() {
 	configFile, _ := rootCmd.Flags().GetString("config")
