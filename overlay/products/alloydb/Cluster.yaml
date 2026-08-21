@@ -38,15 +38,24 @@ custom_code:
 
   pre_delete: _drop
 samples:
-  - name: ansible_alloydb_cluster_basic
+  - name: ansible_doc_cluster
     exclude_test: true
     steps:
-      - name: ansible_alloydb_cluster_basic
-  - name: ansible_alloydb_secondary_cluster_basic
+      - name: ansible_doc_cluster
+  - name: ansible_doc_secondary_cluster
     exclude_test: true
     steps:
-      - name: ansible_alloydb_secondary_cluster_basic
-  - name: ansible_alloydb_secondary_cluster_basic_test
+      - name: ansible_doc_secondary_cluster
+  - name: ansible_test_cluster
     exclude_basic_doc: true
     steps:
-      - name: ansible_alloydb_secondary_cluster_basic_test
+      - name: ansible_setup_network
+        config_path: templates/ansible/samples/common/ansible_setup_network.tmpl
+      - name: ansible_setup_vpc_peering
+        config_path: templates/ansible/samples/common/ansible_setup_vpc_peering.tmpl
+      - name: ansible_setup_cluster
+      - name: ansible_setup_secondary_cluster
+      - name: ansible_test_cluster
+      - name: ansible_test_secondary_cluster
+      - name: ansible_teardown_secondary_cluster
+      - name: ansible_teardown_cluster
