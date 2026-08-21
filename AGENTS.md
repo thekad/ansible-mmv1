@@ -137,18 +137,32 @@ resource happens to use. See `docs/adr/0002-examples-to-samples-migration.md`.
   is a legacy MMv1 concept; our overlay no longer uses it.
 - Resource-specific templates live at
   `overlay/templates/ansible/samples/services/<pkg>/ansible_<name>.tmpl`.
-- Shared/reusable step templates (e.g. VPC peering setup reused across multiple
-  resources) live at `overlay/templates/ansible/samples/common/ansible_<name>.tmpl`
-  and are referenced via an explicit `config_path` on the step:
+- Shared/reusable step templates (e.g. network + VPC peering setup reused across
+  multiple resources) live at
+  `overlay/templates/ansible/samples/common/ansible_<name>.tmpl` and are referenced
+  via an explicit `config_path` on the step:
   ```yaml
   steps:
-    - name: ansible_setup_network_peering
-      config_path: templates/ansible/samples/common/ansible_setup_network_peering.tmpl
-    - name: ansible_my_resource
+    - name: ansible_setup_network
+      config_path: templates/ansible/samples/common/ansible_setup_network.tmpl
+    - name: ansible_test_my_resource
   ```
-- Simple samples have one step sharing the sample's name. Samples with a shared
-  prereq step have 2+ steps; the shared step(s) come first, the resource's own
-  step last. `Sample.Name` always matches the resource's own step name.
+- Simple (doc-only) samples have one step sharing the sample's name. Test samples
+  have multiple steps: shared/setup steps first, the resource's own `ansible_test_`
+  step in the middle, teardown steps last. `Sample.Name` matches the resource's own
+  step name.
+- Sample/step templates are always written **flush-left** (no leading indentation);
+  the renderer handles indentation into the generated `block:`/`always:` structure.
+- Parameterized steps can pass values into a shared template via `vars:` on the
+  step, referenced in the template as `{{index $.Vars "name"}}`. **Always use the
+  no-space form** `{{index $.Vars "name"}}` - MMv1's `validateRegexForContents`
+  (`magic-modules/mmv1/api/resource/step.go`) matches that exact spelling to enforce
+  "every referenced var must be declared on the step". The spaced form
+  `{{ index $.Vars "name" }}` still renders but **silently bypasses** that check, so
+  a missing `vars:` declaration goes undetected and produces broken output. During
+  test rendering MMv1 rewrites each declared var to a `%{name}` placeholder;
+  `pkg/ansible/examples.go`'s `substituteTestVars` converts those back to the literal
+  value.
 
 `ansibleExampleRedirectFS` in `pkg/api/loader.go` handles two path patterns:
 
