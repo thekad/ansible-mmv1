@@ -34,32 +34,72 @@ func NewExamplesFromMmv1(mmv1 *mmv1api.Resource) *Examples {
 	}
 }
 
+// stepPhase derives the rendering phase from a step's name prefix.
+func stepPhase(name string) string {
+	switch {
+	case strings.HasPrefix(name, "ansible_setup_"):
+		return "setup"
+	case strings.HasPrefix(name, "ansible_test_"):
+		return "test"
+	case strings.HasPrefix(name, "ansible_teardown_"):
+		return "teardown"
+	case strings.HasPrefix(name, "ansible_doc_"):
+		return "doc"
+	default:
+		return "test"
+	}
+}
+
+// ToString renders sample content for a given phase. Valid values for which:
+//   - "doc":      all steps from DocExamples (no phase filtering)
+//   - "setup":    ansible_setup_* steps from TestExamples
+//   - "test":     ansible_test_* steps (and legacy unrecognized names) from TestExamples
+//   - "teardown": ansible_teardown_* steps from TestExamples
+//
+// Steps within a sample are joined by a newline.
+// Samples are joined by a #### separator line.
 func (e *Examples) ToString(which string) string {
 	separator := fmt.Sprintf("\n%s\n\n", strings.Repeat("#", 80))
 	exampleStrings := []string{}
-	samples := []*mmv1resource.Sample{}
+
+	var samples []*mmv1resource.Sample
+	var useDocText bool
+
 	switch which {
 	case "doc":
 		samples = e.DocExamples
-	case "test":
+		useDocText = true
+	case "setup", "test", "teardown":
 		samples = e.TestExamples
 	}
+
 	for _, sample := range samples {
 		// Use only the first step as the canonical create example
 		if len(sample.Steps) == 0 {
 			log.Info().Msgf("skipping sample with no steps: %s", sample.Name)
 			continue
 		}
-		step := sample.Steps[0]
-		var content string
-		if which == "doc" {
-			content = step.DocumentationHCLText
-		} else {
-			content = step.TestHCLText
+		stepStrings := []string{}
+		for _, step := range sample.Steps {
+			// For doc mode, include all steps without phase filtering.
+			// For test phases, match by phase prefix.
+			if which != "doc" && stepPhase(step.Name) != which {
+				continue
+			}
+			var content string
+			if useDocText {
+				content = step.DocumentationHCLText
+			} else {
+				content = substituteTestVars(step.TestHCLText, step)
+			}
+			if len(content) <= 1 {
+				log.Info().Msgf("skipping empty step: %s (sample: %s)", step.Name, sample.Name)
+				continue
+			}
+			stepStrings = append(stepStrings, content)
 		}
-		if len(content) <= 1 {
-			log.Info().Msgf("skipping empty sample: %s", sample.Name)
-			continue
+		if len(stepStrings) > 0 {
+			exampleStrings = append(exampleStrings, strings.Join(stepStrings, "\n"))
 		}
 		exampleStrings = append(exampleStrings, content)
 	}

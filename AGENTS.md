@@ -109,9 +109,30 @@ resource happens to use. See `docs/adr/0002-examples-to-samples-migration.md`.
 
 **Naming and placement rules - follow these for all new content:**
 
-- Every sample and step name we declare is prefixed with `ansible_`, e.g.
-  `ansible_alloydb_backup_basic`. Names are never rendered into output, but the
-  prefix guarantees no collision with upstream.
+- Every sample and step name we declare is prefixed with `ansible_`. Names are
+  never rendered into output, but the prefix guarantees no collision with
+  upstream.
+- After the `ansible_` prefix, names carry a **phase prefix** that classifies the
+  step, followed by the resource and variant (the **product name is stripped** -
+  the containing directory already encodes it):
+  - `ansible_doc_<resource>[_<variant>]` - documentation-only examples rendered
+    into the module's `EXAMPLES` block (e.g. `ansible_doc_backup`,
+    `ansible_doc_trigger_filename`).
+  - `ansible_setup_<name>` - prerequisite steps run before the main test, emitted
+    into the test `block:` preamble (e.g. `ansible_setup_cluster`).
+  - `ansible_test_<resource>` - the main integration-test body + assertions
+    (e.g. `ansible_test_backup`).
+  - `ansible_teardown_<name>` - cleanup steps emitted into the test `always:`
+    section (e.g. `ansible_teardown_cluster`).
+
+  `pkg/ansible/examples.go`'s `ToString(phase)` partitions steps by these
+  prefixes. Steps with an unrecognized prefix default to the `test` phase for
+  backward compatibility. In `doc` mode, phase filtering is skipped (all steps of
+  the doc samples render).
+- **Doc-only products** - those with `skip-tests: ["*"]` in `mmv1-config.yaml`
+  (currently `cloudbuild` and `cloudbuildv2`) generate no integration tests, so
+  they use **only** the `ansible_doc_` phase. The `setup`/`test`/`teardown` phases
+  apply only where integration tests actually run (e.g. `alloydb`).
 - Always use `samples:` in overlay YAML. Never use `examples:`. The `examples:` key
   is a legacy MMv1 concept; our overlay no longer uses it.
 - Resource-specific templates live at
