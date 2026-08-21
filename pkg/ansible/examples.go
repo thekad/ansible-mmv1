@@ -74,7 +74,6 @@ func (e *Examples) ToString(which string) string {
 	}
 
 	for _, sample := range samples {
-		// Use only the first step as the canonical create example
 		if len(sample.Steps) == 0 {
 			log.Info().Msgf("skipping sample with no steps: %s", sample.Name)
 			continue
@@ -101,7 +100,21 @@ func (e *Examples) ToString(which string) string {
 		if len(stepStrings) > 0 {
 			exampleStrings = append(exampleStrings, strings.Join(stepStrings, "\n"))
 		}
-		exampleStrings = append(exampleStrings, content)
 	}
 	return strings.Join(exampleStrings, separator)
+}
+
+// substituteTestVars replaces MMv1 test-context placeholders (`%{key}`) with the
+// step's literal `vars:` values. In the test-rendering pass MMv1 rewrites every
+// `Vars` entry to a Terraform acctest placeholder (`%{key}`), expecting Terraform
+// to substitute it from a context map at runtime. Ansible has no such mechanism,
+// so we perform the substitution ourselves using the original literal values
+// (which SetHCLText restores on the step after rendering). This lets a shared
+// step template be parameterized per consumer (e.g. a unique resource-name
+// suffix) while still emitting valid Ansible YAML.
+func substituteTestVars(content string, step *mmv1resource.Step) string {
+	for key, value := range step.Vars {
+		content = strings.ReplaceAll(content, fmt.Sprintf("%%{%s}", key), value)
+	}
+	return content
 }
