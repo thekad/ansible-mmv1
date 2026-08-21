@@ -48,7 +48,6 @@ func (td *TemplateData) executeTemplate(templateName string, input any) (bytes.B
 	templatePath := path.Join(td.TemplateDirectory, templateName)
 	tpls := []string{
 		path.Join(td.TemplateDirectory, "base", "fragments.tmpl"),
-		path.Join(td.TemplateDirectory, "base", "test_fragments.tmpl"),
 		templatePath,
 	}
 
