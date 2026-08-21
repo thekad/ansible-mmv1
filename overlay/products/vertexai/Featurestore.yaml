@@ -1,17 +1,25 @@
 ---
 samples:
-  - name: ansible_vertex_ai_featurestore
+  - name: ansible_doc_featurestore
     exclude_test: true
     steps:
-      - name: ansible_vertex_ai_featurestore
-  - name: ansible_vertex_ai_featurestore_scaling
+      - name: ansible_doc_featurestore
+  - name: ansible_doc_featurestore_scaling
     exclude_test: true
     steps:
-      - name: ansible_vertex_ai_featurestore_scaling
-  - name: ansible_vertex_ai_featurestore_test
+      - name: ansible_doc_featurestore_scaling
+  - name: ansible_test_featurestore
     exclude_basic_doc: true
     steps:
-      - name: ansible_vertex_ai_featurestore_test
+      - name: ansible_setup_featurestore
+        vars:
+          suffix: fs
+      - name: ansible_test_featurestore
+        vars:
+          suffix: fs
+      - name: ansible_teardown_featurestore
+        vars:
+          suffix: fs
 properties:
   - name: name
     type: String
@@ -29,4 +37,3 @@ custom_code:
   pre_delete: |
     if request.get("force_destroy"):
         delete_link = resource.build_link("delete") + "?force=true"
-

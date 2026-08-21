@@ -1,21 +1,22 @@
 ---
 samples:
-  - name: ansible_vertex_ai_deploy_test
+  - name: ansible_test_endpoint_with_model_garden_deployment
     exclude_basic_doc: true
     steps:
-      - name: ansible_vertex_ai_deploy_test
-  - name: ansible_vertex_ai_deploy_basic
+      - name: ansible_test_endpoint_with_model_garden_deployment
+      - name: ansible_teardown_endpoint_with_model_garden_deployment
+  - name: ansible_doc_deploy_basic
     exclude_test: true
     steps:
-      - name: ansible_vertex_ai_deploy_basic
-  - name: ansible_vertex_ai_deploy_huggingface_model
+      - name: ansible_doc_deploy_basic
+  - name: ansible_doc_deploy_huggingface_model
     exclude_test: true
     steps:
-      - name: ansible_vertex_ai_deploy_huggingface_model
-  - name: ansible_vertex_ai_deploy_psc_endpoint
+      - name: ansible_doc_deploy_huggingface_model
+  - name: ansible_doc_deploy_psc_endpoint
     exclude_test: true
     steps:
-      - name: ansible_vertex_ai_deploy_psc_endpoint
+      - name: ansible_doc_deploy_psc_endpoint
 
 virtual_fields:
   - name: display_name

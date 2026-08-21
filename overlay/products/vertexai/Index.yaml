@@ -50,15 +50,27 @@ custom_code:
     resource.url_params["name"] = existing_obj["name"].split("/")[-1]
 
 samples:
-  - name: ansible_vertex_ai_index
+  - name: ansible_doc_index
     exclude_test: true
     steps:
-      - name: ansible_vertex_ai_index
-  - name: ansible_vertex_ai_index_streaming
+      - name: ansible_doc_index
+  - name: ansible_doc_index_streaming
     exclude_test: true
     steps:
-      - name: ansible_vertex_ai_index_streaming
-  - name: ansible_vertex_ai_index_test
+      - name: ansible_doc_index_streaming
+  - name: ansible_test_index
     exclude_basic_doc: true
     steps:
-      - name: ansible_vertex_ai_index_test
+      - name: ansible_setup_bucket
+        config_path: templates/ansible/samples/common/ansible_setup_bucket.tmpl
+      - name: ansible_setup_index_data
+        vars:
+          count: 2
+      - name: ansible_setup_index
+      - name: ansible_test_index
+      - name: ansible_teardown_index
+      - name: ansible_teardown_index_data
+        vars:
+          count: 2
+      - name: ansible_teardown_bucket
+        config_path: templates/ansible/samples/common/ansible_teardown_bucket.tmpl

@@ -1,13 +1,26 @@
 ---
 samples:
-  - name: ansible_vertex_ai_featurestore_entitytype_feature
+  - name: ansible_doc_featurestore_entitytype_feature
     exclude_test: true
     steps:
-      - name: ansible_vertex_ai_featurestore_entitytype_feature
-  - name: ansible_vertex_ai_featurestore_entitytype_feature_test
+      - name: ansible_doc_featurestore_entitytype_feature
+  - name: ansible_test_featurestore_entitytype_feature
     exclude_basic_doc: true
     steps:
-      - name: ansible_vertex_ai_featurestore_entitytype_feature_test
+      - name: ansible_setup_featurestore
+        vars:
+          suffix: fsetf
+      - name: ansible_setup_featurestore_entitytype
+        vars:
+          suffix: fsetf
+      - name: ansible_test_featurestore_entitytype_feature
+      - name: ansible_teardown_featurestore_entitytype_feature
+      - name: ansible_teardown_featurestore
+        vars:
+          suffix: fsetf
+      - name: ansible_teardown_featurestore_entitytype
+        vars:
+          suffix: fsetf
 properties:
   - name: name
     type: String

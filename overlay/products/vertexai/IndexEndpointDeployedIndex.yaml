@@ -7,22 +7,41 @@ parameters:
     url_param_only: true
     immutable: true
 samples:
-  - name: ansible_vertex_ai_index_endpoint_deployed_index_basic
+  - name: ansible_doc_index_endpoint_deployed_index_basic
     exclude_test: true
     steps:
-      - name: ansible_vertex_ai_index_endpoint_deployed_index_basic
-  - name: ansible_vertex_ai_index_endpoint_deployed_index_automatic_resources
+      - name: ansible_doc_index_endpoint_deployed_index_basic
+  - name: ansible_doc_index_endpoint_deployed_index_automatic_resources
     exclude_test: true
     steps:
-      - name: ansible_vertex_ai_index_endpoint_deployed_index_automatic_resources
-  - name: ansible_vertex_ai_index_endpoint_deployed_index_dedicated_resources
+      - name: ansible_doc_index_endpoint_deployed_index_automatic_resources
+  - name: ansible_doc_index_endpoint_deployed_index_dedicated_resources
     exclude_test: true
     steps:
-      - name: ansible_vertex_ai_index_endpoint_deployed_index_dedicated_resources
-  - name: ansible_vertex_ai_index_endpoint_deployed_index_test
+      - name: ansible_doc_index_endpoint_deployed_index_dedicated_resources
+  - name: ansible_test_index_endpoint_deployed_index
     exclude_basic_doc: true
     steps:
-      - name: ansible_vertex_ai_index_endpoint_deployed_index_test
+      - name: ansible_setup_network
+        config_path: templates/ansible/samples/common/ansible_setup_network.tmpl
+      - name: ansible_setup_vpc_peering
+        config_path: templates/ansible/samples/common/ansible_setup_vpc_peering.tmpl
+      - name: ansible_setup_bucket
+        config_path: templates/ansible/samples/common/ansible_setup_bucket.tmpl
+      - name: ansible_setup_index_data
+        vars:
+          count: 1
+      - name: ansible_setup_index
+      - name: ansible_setup_index_endpoint
+      - name: ansible_test_index_endpoint_deployed_index
+      - name: ansible_teardown_index_endpoint_deployed_index
+      - name: ansible_teardown_index_endpoint
+      - name: ansible_teardown_index_data
+        vars:
+          count: 1
+      - name: ansible_teardown_index
+      - name: ansible_teardown_bucket
+        config_path: templates/ansible/samples/common/ansible_teardown_bucket.tmpl
 custom_code:
   custom_import: |
     import copy
@@ -89,4 +108,3 @@ custom_code:
                 break
         else:  # deployedIndexes was empty or no match found
             existing_obj = {}
-

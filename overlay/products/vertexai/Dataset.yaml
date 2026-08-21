@@ -24,6 +24,12 @@ custom_code:
     resource.url_params["name"] = existing_obj["name"]
 
 samples:
-  - name: ansible_vertex_ai_dataset
+  - name: ansible_doc_dataset
+    exclude_test: true
     steps:
-      - name: ansible_vertex_ai_dataset
+      - name: ansible_doc_dataset
+  - name: ansible_test_dataset
+    exclude_basic_doc: true
+    steps:
+      - name: ansible_test_dataset
+      - name: ansible_teardown_dataset

@@ -1,14 +1,15 @@
 ---
 self_link: "projects/{project}/locations/{region}/tensorboards/{name}"
 samples:
-  - name: ansible_vertex_ai_tensorboard
+  - name: ansible_doc_tensorboard
     exclude_test: true
     steps:
-      - name: ansible_vertex_ai_tensorboard
-  - name: ansible_vertex_ai_tensorboard_full
+      - name: ansible_doc_tensorboard
+  - name: ansible_test_tensorboard
     exclude_basic_doc: true
     steps:
-      - name: ansible_vertex_ai_tensorboard_full
+      - name: ansible_test_tensorboard
+      - name: ansible_teardown_tensorboard
 
 custom_code:
   custom_import: _drop

@@ -54,15 +54,20 @@ custom_code:
 
   custom_delete: _drop
 samples:
-  - name: ansible_vertex_ai_rag_engine_config_basic
+  - name: ansible_doc_rag_engine_config_basic
     exclude_test: true
     steps:
-      - name: ansible_vertex_ai_rag_engine_config_basic
-  - name: ansible_vertex_ai_rag_engine_config_scaled
+      - name: ansible_doc_rag_engine_config_basic
+  - name: ansible_doc_rag_engine_config_scaled
     exclude_test: true
     steps:
-      - name: ansible_vertex_ai_rag_engine_config_scaled
-  - name: ansible_vertex_ai_rag_engine_config_unprovisioned
+      - name: ansible_doc_rag_engine_config_scaled
+  - name: ansible_doc_rag_engine_config_unprovisioned
     exclude_test: true
     steps:
-      - name: ansible_vertex_ai_rag_engine_config_unprovisioned
+      - name: ansible_doc_rag_engine_config_unprovisioned
+  - name: ansible_test_rag_engine_config
+    exclude_basic_doc: true
+    steps:
+      - name: ansible_test_rag_engine_config
+      - name: ansible_teardown_rag_engine_config

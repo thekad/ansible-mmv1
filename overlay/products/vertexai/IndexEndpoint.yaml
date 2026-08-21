@@ -1,17 +1,23 @@
 ---
 samples:
-  - name: ansible_vertex_ai_index_endpoint
+  - name: ansible_doc_index_endpoint
     exclude_test: true
     steps:
-      - name: ansible_vertex_ai_index_endpoint
-  - name: ansible_vertex_ai_index_endpoint_with_public_endpoint
+      - name: ansible_doc_index_endpoint
+  - name: ansible_doc_index_endpoint_with_public_endpoint
     exclude_test: true
     steps:
-      - name: ansible_vertex_ai_index_endpoint_with_public_endpoint
-  - name: ansible_vertex_ai_index_endpoint_test
+      - name: ansible_doc_index_endpoint_with_public_endpoint
+  - name: ansible_test_index_endpoint
     exclude_basic_doc: true
     steps:
-      - name: ansible_vertex_ai_index_endpoint_test
+      - name: ansible_setup_network
+        config_path: templates/ansible/samples/common/ansible_setup_network.tmpl
+      - name: ansible_setup_vpc_peering
+        config_path: templates/ansible/samples/common/ansible_setup_vpc_peering.tmpl
+      - name: ansible_setup_index_endpoint
+      - name: ansible_test_index_endpoint
+      - name: ansible_teardown_index_endpoint
 custom_code:
   pre_read: |
     # for this module, we're hitting the list endpoint and filtering on display name and rebuild the link
