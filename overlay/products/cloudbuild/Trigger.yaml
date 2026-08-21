@@ -20,21 +20,27 @@ custom_code:
     else:
       module.url_params["trigger_id"] = existing_obj["name"].split("/")[-1]
 samples:
-  - name: ansible_cloudbuild_trigger_filename
+  - name: ansible_doc_trigger_filename
+    exclude_test: true
     steps:
-      - name: ansible_cloudbuild_trigger_filename
-  - name: ansible_cloudbuild_trigger_build
+      - name: ansible_doc_trigger_filename
+  - name: ansible_doc_trigger_build
+    exclude_test: true
     steps:
-      - name: ansible_cloudbuild_trigger_build
-  - name: ansible_cloudbuild_trigger_pubsub_config
+      - name: ansible_doc_trigger_build
+  - name: ansible_doc_trigger_pubsub_config
+    exclude_test: true
     steps:
-      - name: ansible_cloudbuild_trigger_pubsub_config
-  - name: ansible_cloudbuild_trigger_webhook_config
+      - name: ansible_doc_trigger_pubsub_config
+  - name: ansible_doc_trigger_webhook_config
+    exclude_test: true
     steps:
-      - name: ansible_cloudbuild_trigger_webhook_config
-  - name: ansible_cloudbuild_trigger_manual
+      - name: ansible_doc_trigger_webhook_config
+  - name: ansible_doc_trigger_manual
+    exclude_test: true
     steps:
-      - name: ansible_cloudbuild_trigger_manual
-  - name: ansible_cloudbuild_trigger_repo
+      - name: ansible_doc_trigger_manual
+  - name: ansible_doc_trigger_repo
+    exclude_test: true
     steps:
-      - name: ansible_cloudbuild_trigger_repo
+      - name: ansible_doc_trigger_repo
