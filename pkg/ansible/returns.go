@@ -79,6 +79,8 @@ func mapMmv1TypeToReturnType(property *mmv1api.Type) (ReturnType, error) {
 		return ReturnTypeStr, nil
 	case "Integer":
 		return ReturnTypeInt, nil
+	case "Double":
+		return ReturnTypeFloat, nil
 	case "Boolean":
 		return ReturnTypeBool, nil
 	case "NestedObject":
@@ -212,7 +214,7 @@ func convertPropertiesToReturns(properties []*mmv1api.Type, extended bool) map[s
 // (a list of zero or more resources matching the supplied filters, with a full
 // contains schema derived from the resource's gettable properties).
 type ReturnInfo struct {
-	ResourceKind string                     // e.g. "AlloyDB.Cluster"
+	ResourceKind string                      // e.g. "AlloyDB.Cluster"
 	Contains     map[string]*ReturnAttribute // schema of each item in the resources list
 }
 

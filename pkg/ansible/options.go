@@ -47,6 +47,8 @@ func MapMmv1ToAnsible(property *mmv1api.Type) Type {
 		return TypeStr
 	case "Integer":
 		return TypeInt
+	case "Double":
+		return TypeFloat
 	case "Boolean":
 		return TypeBool
 	case "NestedObject":
