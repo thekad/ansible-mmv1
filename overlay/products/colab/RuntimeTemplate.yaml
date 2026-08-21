@@ -1,13 +1,23 @@
 ---
 samples:
-  - name: ansible_colab_runtime_template_basic
+  - name: ansible_doc_runtime_template_basic
     exclude_test: true
     steps:
-      - name: ansible_colab_runtime_template_basic
-  - name: ansible_colab_runtime_template_full
+      - name: ansible_doc_runtime_template_basic
+  - name: ansible_test_runtime_template
     exclude_basic_doc: true
     steps:
-      - name: ansible_colab_runtime_template_full
+      - name: ansible_setup_network
+        config_path: templates/ansible/samples/common/ansible_setup_network.tmpl
+      - name: ansible_setup_runtime_template
+        vars:
+          suffix: rtt
+      - name: ansible_test_runtime_template
+        vars:
+          suffix: rtt
+      - name: ansible_teardown_runtime_template
+        vars:
+          suffix: rtt
 properties:
   - name: name
     type: String

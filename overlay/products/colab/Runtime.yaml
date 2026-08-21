@@ -1,17 +1,26 @@
 ---
 samples:
-  - name: ansible_colab_runtime_basic
+  - name: ansible_doc_runtime_basic
     exclude_test: true
     steps:
-      - name: ansible_colab_runtime_basic
-  - name: ansible_colab_runtime_stopped
+      - name: ansible_doc_runtime_basic
+  - name: ansible_doc_runtime_stopped
     exclude_test: true
     steps:
-      - name: ansible_colab_runtime_stopped
-  - name: ansible_colab_runtime_full
+      - name: ansible_doc_runtime_stopped
+  - name: ansible_test_runtime
     exclude_basic_doc: true
     steps:
-      - name: ansible_colab_runtime_full
+      - name: ansible_setup_network
+        config_path: templates/ansible/samples/common/ansible_setup_network.tmpl
+      - name: ansible_setup_runtime_template
+        vars:
+          suffix: rt
+      - name: ansible_test_runtime
+      - name: ansible_teardown_runtime
+      - name: ansible_teardown_runtime_template
+        vars:
+          suffix: rt
 virtual_fields:
   - name: desired_state
     description: |
@@ -87,4 +96,3 @@ custom_code:
     if auto_upgrade and is_upgradable:
         gcp_v2.debug(module, msg="Upgrading runtime")
         new_obj = change_state(state_link, op_configs.update.async_uri, resource, op_configs.update.timeout, "upgrade")
-

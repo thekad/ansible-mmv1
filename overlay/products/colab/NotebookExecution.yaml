@@ -1,21 +1,35 @@
 ---
 samples:
-  - name: ansible_colab_notebook_execution_basic
+  - name: ansible_doc_notebook_execution_basic
     exclude_test: true
     steps:
-      - name: ansible_colab_notebook_execution_basic
-  - name: ansible_colab_notebook_execution_custom_env
+      - name: ansible_doc_notebook_execution_basic
+  - name: ansible_doc_notebook_execution_custom_env
     exclude_test: true
     steps:
-      - name: ansible_colab_notebook_execution_custom_env
-  - name: ansible_colab_notebook_execution_dataform
+      - name: ansible_doc_notebook_execution_custom_env
+  - name: ansible_doc_notebook_execution_dataform
     exclude_test: true
     steps:
-      - name: ansible_colab_notebook_execution_dataform
-  - name: ansible_colab_notebook_execution_full
+      - name: ansible_doc_notebook_execution_dataform
+  - name: ansible_test_notebook_execution
     exclude_basic_doc: true
     steps:
-      - name: ansible_colab_notebook_execution_full
+      - name: ansible_setup_network
+        config_path: templates/ansible/samples/common/ansible_setup_network.tmpl
+      - name: ansible_setup_bucket
+        config_path: templates/ansible/samples/common/ansible_setup_bucket.tmpl
+      - name: ansible_setup_credentials
+      - name: ansible_setup_runtime_template
+        vars:
+          suffix: nb
+      - name: ansible_test_notebook_execution
+      - name: ansible_teardown_notebook_execution
+      - name: ansible_teardown_runtime_template
+        vars:
+          suffix: nb
+      - name: ansible_teardown_bucket
+        config_path: templates/ansible/samples/common/ansible_teardown_bucket.tmpl
 custom_code:
   pre_read: |
     # for this module, we're hitting the list endpoint and filtering on display name

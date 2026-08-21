@@ -10,18 +10,35 @@ virtual_fields:
       - PAUSED
     default_value: ACTIVE
 samples:
-  - name: ansible_colab_schedule_basic
+  - name: ansible_doc_schedule_basic
     exclude_test: true
     steps:
-      - name: ansible_colab_schedule_basic
-  - name: ansible_colab_schedule_paused
+      - name: ansible_doc_schedule_basic
+  - name: ansible_doc_schedule_paused
     exclude_test: true
     steps:
-      - name: ansible_colab_schedule_paused
-  - name: ansible_colab_schedule_full
+      - name: ansible_doc_schedule_paused
+  - name: ansible_test_schedule
     exclude_basic_doc: true
     steps:
-      - name: ansible_colab_schedule_full
+      - name: ansible_setup_network
+        config_path: templates/ansible/samples/common/ansible_setup_network.tmpl
+      - name: ansible_setup_bucket
+        config_path: templates/ansible/samples/common/ansible_setup_bucket.tmpl
+      - name: ansible_setup_bucket
+        config_path: templates/ansible/samples/common/ansible_setup_bucket.tmpl
+      - name: ansible_setup_credentials
+      - name: ansible_setup_runtime_template
+        vars:
+          suffix: sch
+      - name: ansible_setup_schedule_config
+      - name: ansible_test_schedule
+      - name: ansible_teardown_schedule
+      - name: ansible_teardown_runtime_template
+        vars:
+          suffix: sch
+      - name: ansible_teardown_bucket
+        config_path: templates/ansible/samples/common/ansible_teardown_bucket.tmpl
 custom_code:
   custom_import: |
     import copy
@@ -102,4 +119,3 @@ custom_code:
 
   pre_delete: |
     resource.url_params["name"] = existing_obj["name"].split("/")[-1]
-
