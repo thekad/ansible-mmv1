@@ -63,7 +63,34 @@ go run .
 | `--overwrite` | | `false` | Overwrite existing files |
 | `--min-version` | | `beta` | Minimum version to generate |
 | `--log-level` | `-l` | `info` | Log level (trace, debug, info, warn, error, fatal) |
-| `--config` | `-C` | first of `.ansible-mmv1.yaml`, `ansible-mmv1.yaml`, `mmv1-config.yaml` | Path to config file |
+| `--config` | `-C` | first of `.ansible-mmv1.yaml`, `.ansible-mmv1/config.yaml`, `ansible-mmv1.yaml`, `mmv1-config.yaml` (searched relative to the current directory) | Path to config file |
+
+#### Path resolution and the config file's directory
+
+Relative path keys (`output`, `templates`, `overlay`, `git.dir`) are resolved as
+follows so results do not depend on where the binary is invoked from:
+
+- An **explicit CLI flag** (e.g. `--output`) is resolved relative to the **current
+  working directory** (normal shell semantics).
+- A value from the **config file**, or a **built-in default**, is resolved relative
+  to the **directory containing the resolved config file**.
+- Absolute paths are used verbatim.
+
+This means a config discovered at `<repo>/.ansible-mmv1/config.yaml` anchors relative
+paths to `<repo>/.ansible-mmv1/`. To place generated output at the repo root while
+keeping templates, overlay, and the git clone inside `.ansible-mmv1/`:
+
+```yaml
+# <repo>/.ansible-mmv1/config.yaml
+output: ..            # repo root (parent of .ansible-mmv1)
+templates: templates  # -> .ansible-mmv1/templates
+overlay: overlay      # -> .ansible-mmv1/overlay
+git:
+  dir: clone          # -> .ansible-mmv1/clone
+```
+
+With this file, running `ansible-mmv1` (no flags) from the repo root discovers the
+config and produces identical results regardless of the invocation directory.
 
 ### Overlay: missing Ansible sample templates
 

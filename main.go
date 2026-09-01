@@ -35,6 +35,13 @@ const MIN_VERSION string = "beta"
 // heuristic in runGenerate().
 var configFileBaseName string
 
+// configFileDir holds the absolute directory containing the resolved config file
+// and is set by initConfig(). Relative path keys sourced from the config file or
+// from built-in defaults are anchored to this directory so results are independent
+// of the current working directory. It falls back to the CWD when no config file
+// is found.
+var configFileDir string
+
 // generationWorkerCount caps concurrent module generation (templates + formatters).
 func generationWorkerCount(numModules int) int {
 	if numModules <= 1 {
@@ -223,7 +230,7 @@ func init() {
 	rootCmd.Flags().StringP("log-level", "l", "info", "log level (trace, debug, info, warn, error, fatal)")
 
 	// Config file flag
-	rootCmd.Flags().StringP("config", "C", "", "path to config file (default: first found of .ansible-mmv1.yaml, ansible-mmv1.yaml, mmv1-config.yaml)")
+	rootCmd.Flags().StringP("config", "C", "", fmt.Sprintf("path to config file (default: first found of %v, relative to the current directory)", configCandidates))
 
 	// Bind flags to viper (only for options that can come from config file).
 	mustBindPFlag("git.url", "git-url")
@@ -298,6 +305,44 @@ func initConfig() {
 	} else {
 		log.Info().Msgf("using config file: %s", viper.ConfigFileUsed())
 	}
+
+	// Anchor relative config/default path keys to the directory containing the
+	// resolved config file so results are independent of the current working
+	// directory. Fall back to the CWD when no config file was used.
+	if used := viper.ConfigFileUsed(); used != "" {
+		if abs, err := filepath.Abs(used); err == nil {
+			configFileDir = filepath.Dir(abs)
+		}
+	}
+	if configFileDir == "" {
+		if cwd, err := os.Getwd(); err == nil {
+			configFileDir = cwd
+		}
+	}
+}
+
+// resolvePath resolves a path key with the precedence:
+//  1. explicit CLI flag -> relative to the current working directory (shell semantics)
+//  2. config value or built-in default -> relative to the config file's directory
+//
+// Absolute paths are returned unchanged.
+func resolvePath(cmd *cobra.Command, flagName, viperKey string) string {
+	if cmd.Flags().Changed(flagName) {
+		v, _ := cmd.Flags().GetString(flagName)
+		abs, err := filepath.Abs(v)
+		if err != nil {
+			log.Fatal().Err(err).Msgf("invalid %s path", flagName)
+		}
+		return abs
+	}
+	v := viper.GetString(viperKey)
+	if v == "" {
+		return ""
+	}
+	if filepath.IsAbs(v) {
+		return v
+	}
+	return filepath.Join(configFileDir, v)
 }
 
 // buildProductResourceMap builds a map of product names to their resource lists
@@ -405,27 +450,23 @@ func doGitClone(path string, ref string, pull bool, url string) error {
 func runGenerate(cmd *cobra.Command, args []string) {
 	// Get configuration values from viper (config file + flags merged)
 	gitURL := viper.GetString("git.url")
-	gitDir := viper.GetString("git.dir")
 	gitRev := viper.GetString("git.rev")
 	gitPull := viper.GetBool("git.pull")
-	overlayPath := viper.GetString("overlay")
 	overwrite := viper.GetBool("overwrite")
 
 	// Resolve output path: CLI flag > config file key > heuristic default.
-	// "output" is bound to viper so viper.IsSet returns true when the config file
-	// sets it; cmd.Flags().Changed detects an explicit --output/-o on the CLI.
+	// An explicit --output/-o is resolved relative to the CWD; a config value or
+	// the heuristic default is anchored to the config file's directory.
 	var output string
 	switch {
-	case cmd.Flags().Changed("output"):
-		output, _ = cmd.Flags().GetString("output")
-	case viper.IsSet("output"):
-		output = viper.GetString("output")
+	case cmd.Flags().Changed("output") || viper.IsSet("output"):
+		output = resolvePath(cmd, "output", "output")
 	default:
+		def := "."
 		if configFileBaseName == "mmv1-config.yaml" {
-			output = "output"
-		} else {
-			output = "."
+			def = "output"
 		}
+		output = filepath.Join(configFileDir, def)
 	}
 	noCode, _ := cmd.Flags().GetBool("no-code")
 	noTests, _ := cmd.Flags().GetBool("no-tests")
@@ -457,20 +498,9 @@ func runGenerate(cmd *cobra.Command, args []string) {
 	}
 	cliProducts, cliResources := getCLIProductResourceFilters(cmd)
 
-	absGitDir, _ := filepath.Abs(gitDir)
-	var overlayDir string
-	if overlayPath != "" {
-		var err error
-		overlayDir, err = filepath.Abs(overlayPath)
-		if err != nil {
-			log.Fatal().Err(err).Msg("invalid overlay path")
-		}
-	}
-
-	ansibleTemplateDir, err := filepath.Abs(viper.GetString("templates")) // ansible-specific templates
-	if err != nil {
-		log.Fatal().Err(err).Msg("invalid ansible templates path")
-	}
+	absGitDir := resolvePath(cmd, "git-dir", "git.dir")
+	overlayDir := resolvePath(cmd, "overlay", "overlay")
+	ansibleTemplateDir := resolvePath(cmd, "templates", "templates") // ansible-specific templates
 
 	if noGitClone {
 		log.Info().Msg("skipping git clone/checkout (--no-git-clone)")
