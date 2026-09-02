@@ -12,12 +12,6 @@ import (
 	"github.com/thekad/ansible-mmv1/pkg/api"
 )
 
-// Package-level documentation constants shared by all module constructors.
-var (
-	standardAuthors      = []string{"Google Inc. (@googlecloudplatform)"}
-	standardDocFragments = []string{"google.cloud.gcp"}
-)
-
 // Documentation represents the complete module specification, used for both
 // regular modules and info modules.
 type Documentation struct {
@@ -28,7 +22,7 @@ type Documentation struct {
 	ShortDescription string `yaml:"short_description"`
 
 	// Detailed description - string or list of strings
-	Description []string `yaml:"description"`
+	Description []string `yaml:"description,omitempty"`
 
 	// Author information - string or list of strings
 	Author []string `yaml:"author,omitempty"`
@@ -66,32 +60,25 @@ func buildResourceNotes(mmv1 *mmv1api.Resource) []string {
 }
 
 // NewDocumentationFromOptions creates a new Documentation from a resource and options.
-func NewDocumentationFromOptions(resource *api.Resource, options map[string]*Option) *Documentation {
+func NewDocumentationFromOptions(resource *api.Resource, options map[string]*Option, authors []string, docFragments []string) *Documentation {
 	return &Documentation{
 		Module:           resource.AnsibleName(),
-		Author:           standardAuthors,
-		ShortDescription: fmt.Sprintf("Creates a GCP %s.%s resource", resource.Parent.Mmv1.Name, resource.Mmv1.Name),
+		Author:           authors,
+		ShortDescription: fmt.Sprintf("Manages a %s resource", resource.FriendlyName()),
 		Description:      cleanModuleDescription(resource.Mmv1.Description),
 		Options:          options,
 		Requirements:     standardModuleRequirements,
 		Notes:            buildResourceNotes(resource.Mmv1),
-		DocFragments:     standardDocFragments,
+		DocFragments:     docFragments,
 	}
 }
 
 // NewDocumentationInfo builds the DOCUMENTATION block for an info module.
 // urlParamOnlyOptions are merged into Options alongside the fixed filters entry
 // so that every argument_spec entry has a corresponding DOCUMENTATION entry.
-func NewDocumentationInfo(resource *api.Resource, urlParamOnlyOptions []*Option) *Documentation {
+func NewDocumentationInfo(resource *api.Resource, urlParamOnlyOptions []*Option, authors []string, docFragments []string) *Documentation {
 	options := map[string]*Option{
 		"filters": {
-			Description: []string{
-				"A list of filter expression strings used to filter the resources returned by the API.",
-				"Each string is a filter expression (e.g. C(some_field = \"SOME_VALUE\")).",
-				"Multiple expressions are combined with a logical AND.",
-				"Refer to the filter topic documentation U(https://cloud.google.com/sdk/gcloud/reference/topic/filters).",
-				"Refer to the IAP-160 filter syntax documentation U(https://google.aip.dev/160).",
-			},
 			Type:     TypeList,
 			Elements: TypeStr,
 			Required: false,
@@ -111,24 +98,25 @@ func NewDocumentationInfo(resource *api.Resource, urlParamOnlyOptions []*Option)
 
 	return &Documentation{
 		Module:           resource.AnsibleName() + "_info",
-		ShortDescription: fmt.Sprintf("List GCP %s resources", resource.FriendlyName()),
+		ShortDescription: fmt.Sprintf("List %s resources", resource.FriendlyName()),
 		Description:      cleanModuleDescription(resource.Mmv1.Description),
-		Author:           standardAuthors,
+		Author:           authors,
 		Requirements:     standardModuleRequirements,
 		Notes:            buildResourceNotes(resource.Mmv1),
 		Options:          options,
-		DocFragments:     standardDocFragments,
+		DocFragments:     docFragments,
 	}
 }
 
 func cleanModuleDescription(description string) []string {
 	var cleanLines []string
-	for _, line := range strings.Split(description, "\n") {
+	for line := range strings.SplitSeq(description, "\n") {
 		line = strings.TrimSpace(line)
 		if line != "" {
 			cleanLines = append(cleanLines, line)
 		}
 	}
+
 	return cleanLines
 }
 

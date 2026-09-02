@@ -183,12 +183,13 @@ func ShortName(productKey string) string {
 }
 
 // WrapProduct builds ansible-mmv1's api.Product from a loaded MMv1 product.
-func WrapProduct(mmProd *mmv1api.Product, mmRoot string) *Product {
+func WrapProduct(mmProd *mmv1api.Product, mmRoot string, prefix string) *Product {
 	short := ShortName(mmProd.PackagePath)
 	return &Product{
-		Name: short,
-		File: filepath.Join(mmRoot, mmProd.PackagePath, "product.yaml"),
-		Mmv1: mmProd,
+		Name:   short,
+		Prefix: prefix,
+		File:   filepath.Join(mmRoot, mmProd.PackagePath, "product.yaml"),
+		Mmv1:   mmProd,
 	}
 }
 

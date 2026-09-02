@@ -270,10 +270,6 @@ func (as *ArgumentSpec) buildModuleConstraints() string {
 //   - one entry per URL-param-only property (e.g. location, cluster_id) - these
 //     are required to construct the API list URL.
 //   - filters - optional list of filter expression strings forwarded to the backend.
-//
-// All other auth parameters (project, auth_kind, service_account_*, scopes, etc.)
-// are injected automatically by gcp_v2.Module and are covered by the
-// google.cloud.gcp documentation fragment; they must not be repeated here.
 type ArgumentInfoSpec struct {
 	UrlParamOnlyOptions []*Option
 }

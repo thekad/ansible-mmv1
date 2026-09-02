@@ -37,6 +37,8 @@ type InfoModule struct {
 	OperationConfigs  *OperationConfigs
 	CollectionKey     string
 	CustomCode        *InfoCustomCode
+	DocFragments      []string
+	Authors           []string
 }
 
 // filterOptionsInUrl returns only those options from the given map whose
@@ -57,7 +59,7 @@ func filterOptionsInUrl(options map[string]*Option, urlPath string) []*Option {
 }
 
 // NewInfoFromResource constructs an InfoModule from an API resource.
-func NewInfoFromResource(resource *api.Resource) *InfoModule {
+func NewInfoFromResource(resource *api.Resource, authors []string, docFragments []string) *InfoModule {
 	log.Info().Msgf("creating info module for %s", resource.AnsibleName())
 
 	type infoCustomizationFile struct {
@@ -111,12 +113,14 @@ func NewInfoFromResource(resource *api.Resource) *InfoModule {
 	return &InfoModule{
 		Name:              resource.AnsibleName() + "_info",
 		Resource:          resource,
-		DocumentationInfo: NewDocumentationInfo(resource, urlParamOnlyOptions),
+		DocumentationInfo: NewDocumentationInfo(resource, urlParamOnlyOptions, authors, docFragments),
 		ReturnInfo:        NewReturnInfo(resource),
 		ArgumentInfoSpec:  NewArgumentInfoSpec(urlParamOnlyOptions),
 		OperationConfigs:  NewOperationConfigsFromMmv1(resource.Mmv1),
 		CollectionKey:     resource.Mmv1.CollectionUrlKey,
 		CustomCode:        customCode,
+		Authors:           authors,
+		DocFragments:      docFragments,
 	}
 }
 

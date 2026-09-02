@@ -214,8 +214,8 @@ func convertPropertiesToReturns(properties []*mmv1api.Type, extended bool) map[s
 // (a list of zero or more resources matching the supplied filters, with a full
 // contains schema derived from the resource's gettable properties).
 type ReturnInfo struct {
-	ResourceKind string                      // e.g. "AlloyDB.Cluster"
-	Contains     map[string]*ReturnAttribute // schema of each item in the resources list
+	Resource *api.Resource
+	Contains map[string]*ReturnAttribute // schema of each item in the resources list
 }
 
 // NewReturnInfo creates a ReturnInfo for the given resource.
@@ -223,8 +223,8 @@ type ReturnInfo struct {
 // ResourceRef and immutability annotations are omitted from info module output.
 func NewReturnInfo(resource *api.Resource) *ReturnInfo {
 	return &ReturnInfo{
-		ResourceKind: resource.Parent.Mmv1.Name + "." + resource.Mmv1.Name,
-		Contains:     convertPropertiesToReturns(resource.Mmv1.GettableProperties(), false),
+		Resource: resource,
+		Contains: convertPropertiesToReturns(resource.Mmv1.GettableProperties(), false),
 	}
 }
 
@@ -236,7 +236,7 @@ func (r *ReturnInfo) ToString() string {
 			Description: fmt.Sprintf(
 				"List of %s resources matching the supplied filters. "+
 					"May be empty, contain a single resource, or multiple resources.",
-				r.ResourceKind,
+				r.Resource.FriendlyName(),
 			),
 			Returned: "always",
 			Type:     ReturnTypeList,

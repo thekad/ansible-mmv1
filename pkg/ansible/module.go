@@ -24,19 +24,21 @@ type Module struct {
 	ArgumentSpec     *ArgumentSpec
 	OperationConfigs *OperationConfigs
 	Dependency       *Dependency
+	DocFragments     []string
+	Authors          []string
 }
 
 // NewFromResource creates a new Module from an API Resource
 // The rule of thumb for this constructor is to build the options, examples,
 // returns, and operation configs from the Mmv1 API Resource object, and then
 // build the rest of the members based off the options.
-func NewFromResource(resource *api.Resource) *Module {
+func NewFromResource(resource *api.Resource, authors []string, docFragments []string) *Module {
 	// Always define standard options for GCP resources
 	standardOptions := map[string]*Option{
 		"state": {
 			Name: "state",
 			Description: []string{
-				"Whether the resource should exist in GCP.",
+				"Whether the resource should exist.",
 			},
 			Type:    TypeStr,
 			Default: "present",
@@ -55,6 +57,8 @@ func NewFromResource(resource *api.Resource) *Module {
 		Examples:         NewExamplesFromMmv1(resource.Mmv1),
 		Returns:          NewReturnBlockFromMmv1(resource.Mmv1),
 		OperationConfigs: NewOperationConfigsFromMmv1(resource.Mmv1),
+		Authors:          authors,
+		DocFragments:     docFragments,
 	}
 	argOpts := m.ArgumentOptions()
 	m.Dependency = &Dependency{
@@ -69,7 +73,7 @@ func NewFromResource(resource *api.Resource) *Module {
 	}
 
 	log.Info().Msgf("creating documentation for %s", resource.AnsibleName())
-	m.Documentation = NewDocumentationFromOptions(resource, argumentOptions)
+	m.Documentation = NewDocumentationFromOptions(resource, argumentOptions, authors, docFragments)
 
 	log.Info().Msgf("creating argument spec for %s", resource.AnsibleName())
 	m.ArgumentSpec = NewArgSpecFromOptions(argumentOptions, m.Dependency)

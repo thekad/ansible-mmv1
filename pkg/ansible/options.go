@@ -104,7 +104,7 @@ type Option struct {
 
 	// Description is required - explanation of what this option does
 	// Can be a string or list of strings (each string is one paragraph)
-	Description []string `yaml:"description"`
+	Description []string `yaml:"description,omitempty"`
 
 	// Type is optional - data type of the option
 	// Uses AnsibleType enum for type safety
