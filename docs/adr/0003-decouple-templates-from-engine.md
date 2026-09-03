@@ -1,6 +1,18 @@
 # ADR 0003: Decouple Templates and Overlay from the Generator Engine
 
-**Status:** Proposed (2026-08-13)
+**Status:** Executed (2026-09-03)
+
+> **2026-09-03 update:** All steps of the migration path have been carried out.
+> `templates/` and `overlay/` were copied to the target `google.cloud` collection
+> repository beforehand; this repo's `overlay/` directory has been removed entirely,
+> and `templates/` has been replaced with the generic FIXME skeleton described below.
+> `main.go` embeds the skeleton `templates/` tree via `//go:embed all:templates`,
+> `pkg/renderer` accepts an `fs.FS` instead of a disk path, and template resolution
+> follows the explicit/default/embedded-fallback logic specified below. Collection
+> authors are expected to point `--templates`/`--overlay` at their own copies (e.g.
+> the collection repo checked out alongside this one) for day-to-day development;
+> running with no `templates/`/`overlay/` present produces structurally valid but
+> non-functional (`FIXME`-marked) output, by design.
 
 ## Motivation
 

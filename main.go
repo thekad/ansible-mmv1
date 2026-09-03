@@ -4,7 +4,9 @@
 package main
 
 import (
+	"embed"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path"
@@ -28,6 +30,10 @@ import (
 )
 
 const MMV1_REPO string = "https://github.com/GoogleCloudPlatform/magic-modules"
+
+//go:embed all:templates
+var embeddedTemplates embed.FS
+
 const MIN_VERSION string = "ga"
 
 // configFileBaseName holds the base filename of the resolved config file (e.g.
@@ -356,6 +362,36 @@ func resolvePath(cmd *cobra.Command, flagName, viperKey string) string {
 	return filepath.Join(configFileDir, v)
 }
 
+// resolveTemplateFS determines which filesystem to load ansible templates from.
+// If the user explicitly set --templates (flag or config file), the path must
+// exist on disk or this is a fatal error. Otherwise, the default "templates"
+// directory is used if present on disk, falling back to the templates embedded
+// in the binary.
+func resolveTemplateFS(cmd *cobra.Command) fs.FS {
+	explicit := cmd.Flags().Changed("templates") || viper.IsSet("templates")
+	templateDir := resolvePath(cmd, "templates", "templates")
+
+	if explicit {
+		if _, err := os.Stat(templateDir); err != nil {
+			log.Fatal().Err(err).Msgf("templates directory does not exist: %s", templateDir)
+		}
+		log.Info().Msgf("ansible specific templates: %s", templateDir)
+		return os.DirFS(templateDir)
+	}
+
+	if _, err := os.Stat(templateDir); err == nil {
+		log.Info().Msgf("ansible specific templates: %s", templateDir)
+		return os.DirFS(templateDir)
+	}
+
+	sub, err := fs.Sub(embeddedTemplates, "templates")
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to load embedded templates")
+	}
+	log.Warn().Msg("no custom templates directory found, using built-in skeleton templates")
+	return sub
+}
+
 // buildProductResourceMap builds a map of product names to their resource lists
 func buildProductResourceMap(products []ProductConfig) map[string][]string {
 	prm := make(map[string][]string)
@@ -517,7 +553,7 @@ func runGenerate(cmd *cobra.Command, args []string) {
 
 	absGitDir := resolvePath(cmd, "git-dir", "git.dir")
 	overlayDir := resolvePath(cmd, "overlay", "overlay")
-	ansibleTemplateDir := resolvePath(cmd, "templates", "templates") // ansible-specific templates
+	templateFS := resolveTemplateFS(cmd) // ansible-specific templates
 
 	if noGitClone {
 		log.Info().Msg("skipping git clone/checkout (--no-git-clone)")
@@ -541,8 +577,7 @@ func runGenerate(cmd *cobra.Command, args []string) {
 		log.Fatal().Err(err).Msg("failed to load Magic Modules (loader)")
 	}
 
-	log.Info().Msgf("ansible specific templates: %s", ansibleTemplateDir)
-	templateData := renderer.NewTemplateData(ansibleTemplateDir, output, overwrite)
+	templateData := renderer.NewTemplateData(templateFS, output, overwrite)
 	log.Debug().Msgf("template data: %v", templateData)
 
 	jobsToRun := []moduleJob{}

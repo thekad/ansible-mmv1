@@ -10,34 +10,39 @@ produces:
 - Integration test scaffolding (`output/tests/integration/targets/<name>/`)
 
 It is the `ansible` compiler target in the Magic Modules ecosystem - analogous to how
-MMv1 generates Terraform provider resources, this tool generates `google.cloud`
-Ansible collection modules.
+MMv1 generates Terraform provider resources, this tool generates Ansible collection
+modules for whichever collection points its `--templates`/`--overlay` (or `templates`/
+`overlay` config keys) at this engine.
 
-**This is not an Ansible playbook/role/collection repository.** It is a Go tool that
-*generates* Ansible modules.
+**This is not an Ansible playbook/role/collection repository.** It is a standalone Go
+engine that *generates* Ansible modules. See ADR 0003
+(`docs/adr/0003-decouple-templates-from-engine.md`) for the decision to decouple the
+engine from any single collection's content.
+
+**Two-repo model:** the production `templates/` and `overlay/` content (Google
+branding, `gcp_v2` module_utils imports, per-resource YAML overrides, Ansible sample
+templates) now lives in the target `google.cloud` collection repository, not here.
+This repo ships only:
+- The Go engine (`pkg/`, `main.go`)
+- A generic, `FIXME`-marked **skeleton** `templates/` directory (embedded into the
+  binary via `//go:embed`) that documents the template contract and lets
+  `go run github.com/thekad/ansible-mmv1@latest` produce *something* even with no
+  external templates/overlay configured
+- No `overlay/` directory at all (an overlay is optional; if none is found, only
+  upstream MMv1 YAML is used)
+
+When developing against real Google Cloud resources, point `--templates`/`--overlay`
+(or the `templates`/`overlay` config keys) at a checkout of the collection repo that
+holds the production content.
 
 ## Repository Layout
 
 ```
 ansible-mmv1/
-├── main.go                     # CLI entry point (cobra + viper); git clone + worker pool
+├── main.go                     # CLI entry point (cobra + viper); git clone + worker pool; go:embed skeleton templates
 ├── mmv1-config.yaml            # Primary runtime config (pinned MMv1 commit, product list)
 ├── go.mod / go.sum             # Go 1.26 module; key deps: cobra, viper, zerolog, go-git
 ├── docs/adr/                   # Architecture Decision Records (design decisions, migration plans)
-├── overlay/                    # Local YAML + template overrides layered over the MMv1 clone
-│   ├── products/               # Per-product/resource YAML overrides (MMv1 layout)
-│   │   ├── alloydb/
-│   │   ├── cloudbuildv2/
-│   │   ├── colab/
-│   │   ├── tpuv2/
-│   │   └── vertexai/
-│   ├── info/                   # Per-product/resource info module customization files
-│   │   └── vertexai/           # (NOT loaded by MMv1; read directly by NewInfoFromResource)
-│   └── templates/ansible/
-│       └── samples/
-│           ├── common/         # Shared/reusable step templates (e.g. network peering setup).
-│           │                   # Referenced via explicit config_path on a Step; ansible_-prefixed.
-│           └── services/<pkg>/ # Per-resource Ansible YAML templates (.tmpl); ansible_-prefixed.
 ├── pkg/
 │   ├── api/                    # MMv1 product/resource loading + overlay FS wrappers
 │   │   ├── api.go              # Product/Resource structs; AnsibleName() -> gcp_<prod>_<res>
@@ -53,15 +58,14 @@ ansible-mmv1/
 │   │   ├── options.go          # MMv1 Type -> Ansible Option mapping
 │   │   └── utils.go            # YAML serialization, description parsing, ToPythonTpl
 │   └── renderer/               # Template execution engine
-│       ├── renderer.go         # TemplateData, GenerateCode(), GenerateTests()
+│       ├── renderer.go         # TemplateData (fs.FS-backed), GenerateCode(), GenerateTests()
 │       └── utils.go            # Template function map (indent, sortedKeys, etc.)
-├── templates/                  # Go text/template files
+├── templates/                  # Skeleton Go text/template files (embedded via go:embed; FIXME-marked)
 │   ├── base/
-│   │   ├── fragments.tmpl      # python_file_header, license_notice, autogen_notice
-│   │   └── test_fragments.tmpl # network_setup / network_teardown fragments
+│   │   └── fragments.tmpl      # python_file_header, license_notice, autogen_notice
 │   ├── plugins/
-│   │   ├── module.tmpl         # Main Python module template (~390 lines)
-│   │   └── module_info.tmpl    # Info module variant
+│   │   ├── module.tmpl         # Skeleton Python module template
+│   │   └── module_info.tmpl    # Skeleton info module variant
 │   └── tests/integration/
 │       ├── aliases.tmpl
 │       ├── defaults/main.yml.tmpl
@@ -80,6 +84,13 @@ Gitignored paths: `output/` (generated files), `magic-modules/` (cloned repo),
 The `overlay/` directory mirrors the MMv1 directory layout. At load time, an
 `OverlayFS` is constructed that layers overlay files *over* the upstream MMv1 clone.
 This allows Ansible-specific customizations without touching upstream YAML.
+
+**Note:** this repo does not ship an `overlay/` directory (see ADR 0003). The
+production `overlay/` content lives in the target `google.cloud` collection repo;
+point `--overlay` (or the `overlay` config key) at a checkout of that repo during
+development. If no overlay directory is found, generation proceeds using upstream
+MMv1 YAML only - this section documents the overlay *mechanism*, which applies to
+whichever overlay directory is configured.
 
 Overlay YAML files support:
 - `_drop: true` - a sentinel value (not `true` as a boolean flag) used to blank a

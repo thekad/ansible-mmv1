@@ -6,6 +6,7 @@ package renderer
 import (
 	"bytes"
 	"fmt"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -17,24 +18,20 @@ import (
 )
 
 type TemplateData struct {
-	TemplateDirectory        string
+	templateFS               fs.FS
 	OutputFolder             string
 	ModuleDirectory          string
 	IntegrationTestDirectory string
 	OverWrite                bool
 }
 
-func NewTemplateData(templateDirectory, outputFolder string, overWrite bool) *TemplateData {
-	absTemplateDirectory, err := filepath.Abs(templateDirectory)
-	if err != nil {
-		log.Panic().Err(err)
-	}
+func NewTemplateData(templateFS fs.FS, outputFolder string, overWrite bool) *TemplateData {
 	absOutputFolder, err := filepath.Abs(outputFolder)
 	if err != nil {
 		log.Panic().Err(err)
 	}
 	return &TemplateData{
-		TemplateDirectory:        absTemplateDirectory,
+		templateFS:               templateFS,
 		OutputFolder:             absOutputFolder,
 		ModuleDirectory:          path.Join(absOutputFolder, "plugins", "modules"),
 		IntegrationTestDirectory: path.Join(absOutputFolder, "tests", "integration", "targets"),
@@ -45,17 +42,16 @@ func NewTemplateData(templateDirectory, outputFolder string, overWrite bool) *Te
 func (td *TemplateData) executeTemplate(templateName string, input any) (bytes.Buffer, error) {
 	contents := bytes.Buffer{}
 
-	templatePath := path.Join(td.TemplateDirectory, templateName)
 	tpls := []string{
-		path.Join(td.TemplateDirectory, "base", "fragments.tmpl"),
-		templatePath,
+		"base/fragments.tmpl",
+		templateName,
 	}
 
 	// Create template first
 	tmpl := template.New(filepath.Base(templateName))
 
 	// Create function map with special function exec that will have access to the template object
-	funcs := funcMap(os.DirFS(td.TemplateDirectory))
+	funcs := funcMap(td.templateFS)
 	funcs["exec"] = func(templateName string, data interface{}) (string, error) {
 		var buf strings.Builder
 		err := tmpl.ExecuteTemplate(&buf, templateName, data)
@@ -67,7 +63,7 @@ func (td *TemplateData) executeTemplate(templateName string, input any) (bytes.B
 
 	// Add the function map to the template and then parse files
 	tmpl = tmpl.Funcs(funcs)
-	tmpl, err := tmpl.ParseFiles(tpls...)
+	tmpl, err := tmpl.ParseFS(td.templateFS, tpls...)
 	if err != nil {
 		return contents, err
 	}
@@ -156,7 +152,7 @@ func (td *TemplateData) GenerateTests(module *ansible.Module) error {
 	}
 	for _, testFile := range testFiles {
 		log.Debug().Msgf("creating integration test file: %s", testFile)
-		templateName := fmt.Sprintf("tests/integration/%s.tmpl", strings.TrimPrefix(testFile, filepath.Join(td.IntegrationTestDirectory, module.Name)))
+		templateName := path.Join("tests/integration", strings.TrimPrefix(testFile, filepath.Join(td.IntegrationTestDirectory, module.Name))+".tmpl")
 		if err := td.writeFile(testFile, templateName, module); err != nil {
 			return fmt.Errorf("error creating integration test file: %v", err)
 		}
