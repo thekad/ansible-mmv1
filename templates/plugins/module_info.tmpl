@@ -10,7 +10,7 @@ __metaclass__ = type
 ANSIBLE_METADATA = {
     "metadata_version": "1.1",
     "status": ["preview"],
-    "supported_by": "community",
+    "supported_by": "FIXME",
 }
 
 DOCUMENTATION = r"""
@@ -27,7 +27,7 @@ RETURN = r"""
 # Imports
 ################################################################################
 
-from ansible_collections.google.cloud.plugins.module_utils import gcp_v2
+import FIXME_module_utils as module_utils  # FIXME: replace with your collection's module_utils import
 {{ if and .CustomCode .CustomCode.CustomImport (not (strEq .CustomCode.CustomImport "_drop")) -}}
 # BEGIN Custom imports
 {{ .CustomCode.CustomImport -}}
@@ -42,7 +42,7 @@ from ansible_collections.google.cloud.plugins.module_utils import gcp_v2
 def main():
     """Main function"""
 
-    module = gcp_v2.Module(
+    module = module_utils.Module(
         {{ $.ArgumentInfoSpec.ToString | indent 8 false }},
         supports_check_mode=True,
     )
@@ -51,9 +51,9 @@ def main():
         module.params["scopes"] = {{ $.Scopes | toJson }}
 
     # info modules only require the "collection" url
-    op_configs = gcp_v2.ResourceOpConfigs(base_url="{{ $.BaseUrl }}", base_uri="{{ $.OperationConfigs.BaseUri }}", configs={})
+    op_configs = module_utils.ResourceOpConfigs(base_url="{{ $.BaseUrl }}", base_uri="{{ $.OperationConfigs.BaseUri }}", configs={})
 
-    info = gcp_v2.Resource(
+    info = module_utils.Resource(
         module.params,  # only need it to build the link
         module=module,
         product="{{ $.ProductName }}",

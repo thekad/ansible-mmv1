@@ -1,4 +1,0 @@
-parameters:
-  - name: zone
-    required: true
-    description: The GCP location for the TPU.
