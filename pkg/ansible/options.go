@@ -263,6 +263,29 @@ func (o *Option) ApiName() string {
 	return o.Name
 }
 
+// hasApiNameOverride reports whether this property's api_name was explicitly
+// set (upstream or via overlay) to something other than its own name.
+func (o *Option) hasApiNameOverride() bool {
+	return o.Mmv1 != nil && o.Mmv1.ApiName != "" && o.Mmv1.ApiName != o.Mmv1.Name
+}
+
+// SafeApiName returns the key that should be used when emitting this option
+// into a returned response dict. It matches ApiName() unless the property has
+// no explicit api_name override in place and its name collides with a dict
+// builtin method name (see reservedReturnKeys), in which case a safe
+// alternative is returned instead so the value remains accessible via dot
+// notation in Jinja.
+func (o *Option) SafeApiName() string {
+	apiName := o.ApiName()
+	if o.hasApiNameOverride() {
+		return apiName
+	}
+	if renamed, ok := reservedReturnKeys[apiName]; ok {
+		return renamed
+	}
+	return apiName
+}
+
 // NewOptionsFromMmv1 creates a map of Ansible options from a magic-modules API Resource
 // This constructor extracts user properties from the API Resource and converts them
 // to Ansible module options following the documentation format

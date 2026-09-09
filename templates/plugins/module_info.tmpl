@@ -38,6 +38,36 @@ import FIXME_module_utils as module_utils  # FIXME: replace with your collection
 # Main
 ################################################################################
 
+# Renamed to avoid ansible-test's bad-return-value-key sanity check: dict
+# builtin method names cannot be accessed with dot notation in Jinja.
+_RESERVED_RETURN_KEYS = {
+    "clear": "clear_value",
+    "copy": "copy_value",
+    "fromkeys": "fromkey_values",
+    "get": "get_value",
+    "items": "item_values",
+    "keys": "key_values",
+    "pop": "pop_value",
+    "popitem": "popitem_value",
+    "setdefault": "setdefault_value",
+    "update": "update_value",
+    "values": "value_values",
+}
+
+
+def _rename_reserved_keys(obj):
+    """Recursively rename dict keys that collide with dict builtin method
+    names, so returned values remain accessible via dot notation in Jinja."""
+
+    if isinstance(obj, dict):
+        return {
+            _RESERVED_RETURN_KEYS.get(key, key): _rename_reserved_keys(value)
+            for key, value in obj.items()
+        }
+    if isinstance(obj, list):
+        return [_rename_reserved_keys(item) for item in obj]
+    return obj
+
 
 def main():
     """Main function"""
@@ -78,7 +108,7 @@ def main():
     # END post_read custom code
     {{ end }}
 
-    module.exit_json(changed=False, resources=resources)
+    module.exit_json(changed=False, resources=_rename_reserved_keys(resources))
 
 
 if __name__ == "__main__":

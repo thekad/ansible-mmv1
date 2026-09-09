@@ -369,6 +369,49 @@ func TestOptionApiName(t *testing.T) {
 	})
 }
 
+func TestOptionSafeApiName(t *testing.T) {
+	cases := []struct {
+		name    string
+		apiName string
+		want    string
+	}{
+		{"clear", "", "clear_value"},
+		{"copy", "", "copy_value"},
+		{"fromkeys", "", "fromkey_values"},
+		{"get", "", "get_value"},
+		{"items", "", "item_values"},
+		{"keys", "", "key_values"},
+		{"pop", "", "pop_value"},
+		{"popitem", "", "popitem_value"},
+		{"setdefault", "", "setdefault_value"},
+		{"update", "", "update_value"},
+		{"values", "", "value_values"},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name+"_collides_with_dict_builtin", func(t *testing.T) {
+			o := &Option{Name: tc.name, Mmv1: &mmv1api.Type{Name: tc.name, ApiName: tc.apiName}}
+			if got := o.SafeApiName(); got != tc.want {
+				t.Fatalf("SafeApiName() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+
+	t.Run("does not rename when explicit api_name override is in place", func(t *testing.T) {
+		o := &Option{Name: "items", Mmv1: &mmv1api.Type{Name: "items", ApiName: "customItems"}}
+		if got := o.SafeApiName(); got != "customItems" {
+			t.Fatalf("SafeApiName() = %q, want %q", got, "customItems")
+		}
+	})
+
+	t.Run("passes through non-colliding names unchanged", func(t *testing.T) {
+		o := &Option{Name: "displayName", Mmv1: &mmv1api.Type{Name: "displayName"}}
+		if got := o.SafeApiName(); got != "displayName" {
+			t.Fatalf("SafeApiName() = %q, want %q", got, "displayName")
+		}
+	})
+}
+
 func TestOptionIsList(t *testing.T) {
 	t.Run("returns true for TypeList", func(t *testing.T) {
 		o := &Option{Type: TypeList}

@@ -148,6 +148,27 @@ func NewReturnBlockFromMmv1(resource *mmv1api.Resource) *ReturnBlock {
 	return returns
 }
 
+// safeReturnKey returns the key that should be used to document/emit this
+// property as a return value. It matches the property's own (default) name
+// unless there is no explicit api_name override in place and the name
+// collides with a dict builtin method name (see reservedReturnKeys), in which
+// case a safe alternative is used so the value stays accessible via dot
+// notation in Jinja (see ansible-test's bad-return-value-key sanity check).
+func safeReturnKey(property *mmv1api.Type) string {
+	apiName := property.ApiName
+	if apiName == "" {
+		apiName = property.Name
+	}
+	if apiName != property.Name {
+		// an explicit api_name override is already in place; respect it
+		return apiName
+	}
+	if renamed, ok := reservedReturnKeys[apiName]; ok {
+		return renamed
+	}
+	return apiName
+}
+
 // convertPropertiesToReturns converts MMv1 properties to Ansible return attributes.
 // When extended is true, additional annotations (ResourceRef links, immutable notes)
 // are appended to property descriptions - suitable for regular modules.
@@ -165,7 +186,7 @@ func convertPropertiesToReturns(properties []*mmv1api.Type, extended bool) map[s
 			continue
 		}
 
-		returnName := property.Name
+		returnName := safeReturnKey(property)
 
 		// Create the return attribute
 		returnType, err := mapMmv1TypeToReturnType(property)

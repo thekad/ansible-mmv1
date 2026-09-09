@@ -65,7 +65,7 @@ class {{ $option.ClassName }}(module_utils.Resource):
     def _response(self):
         return {
     {{- range $suboption := $option.OutputSuboptions }}
-            "{{ $suboption.ApiName }}": {{""}}
+            "{{ $suboption.SafeApiName }}": {{""}}
         {{- if $suboption.IsNestedObject -}}
             {{ $suboption.ClassName }}().from_response(self.response.get("{{ $suboption.ApiName }}", {})),
         {{- else if $suboption.IsNestedList -}}
@@ -106,7 +106,7 @@ class {{ $.ModuleClass }}(module_utils.Resource):
     def _response(self):
         return {
         {{- range $option := $.OutputOptions }}
-            "{{ $option.ApiName }}": {{ if $option.IsNestedObject -}}
+            "{{ $option.SafeApiName }}": {{ if $option.IsNestedObject -}}
             {{ $option.ClassName }}().from_response(self.response.get("{{ $option.ApiName }}", {})),
             {{- else if $option.IsNestedList -}}
             [{{ $option.ClassName }}().from_response(item) for item in (self.response.get("{{ $option.ApiName }}") or [])],
