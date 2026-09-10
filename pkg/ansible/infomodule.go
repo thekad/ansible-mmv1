@@ -58,8 +58,9 @@ func filterOptionsInUrl(options map[string]*Option, urlPath string) []*Option {
 	return filtered
 }
 
-// NewInfoFromResource constructs an InfoModule from an API resource.
-func NewInfoFromResource(resource *api.Resource, authors []string, docFragments []string) *InfoModule {
+// NewInfoFromResource constructs an InfoModule from an API resource. overlayDir
+// is the resolved overlay root directory (may be empty if no overlay is configured).
+func NewInfoFromResource(resource *api.Resource, overlayDir string, authors []string, docFragments []string) *InfoModule {
 	log.Info().Msgf("creating info module for %s", resource.AnsibleName())
 
 	type infoCustomizationFile struct {
@@ -68,19 +69,23 @@ func NewInfoFromResource(resource *api.Resource, authors []string, docFragments 
 
 	// check for and load the info module's customization file
 	var customCode *InfoCustomCode
-	infoPath := filepath.Join("overlay", "info", resource.Parent.Name, resource.Name+".yaml")
-	if _, err := os.Stat(infoPath); err == nil {
-		log.Debug().Msgf("found info module customization file for %s at %s", resource.AnsibleName(), infoPath)
-		data, err := os.ReadFile(infoPath)
-		if err != nil {
-			log.Fatal().Err(err).Msgf("failed to read info module customization file for %s", resource.AnsibleName())
-		}
+	if overlayDir != "" {
+		infoPath := filepath.Join(overlayDir, "info", resource.Parent.Name, resource.Name+".yaml")
+		if _, err := os.Stat(infoPath); err == nil {
+			log.Debug().Msgf("found info module customization file for %s at %s", resource.AnsibleName(), infoPath)
+			data, err := os.ReadFile(infoPath)
+			if err != nil {
+				log.Fatal().Err(err).Msgf("failed to read info module customization file for %s", resource.AnsibleName())
+			}
 
-		var customization infoCustomizationFile
-		if err := yaml.Unmarshal(data, &customization); err != nil {
-			log.Fatal().Err(err).Msgf("failed to unmarshal info module customization file for %s", resource.AnsibleName())
+			var customization infoCustomizationFile
+			if err := yaml.Unmarshal(data, &customization); err != nil {
+				log.Fatal().Err(err).Msgf("failed to unmarshal info module customization file for %s", resource.AnsibleName())
+			}
+			customCode = customization.CustomCode
+		} else {
+			log.Debug().Msgf("no info module customization file for %s at %s", resource.AnsibleName(), infoPath)
 		}
-		customCode = customization.CustomCode
 	}
 
 	opConfigs := NewOperationConfigsFromMmv1(resource.Mmv1)

@@ -617,7 +617,7 @@ func runGenerate(cmd *cobra.Command, args []string) {
 
 			module := ansible.NewFromResource(r, ansibleAuthors, ansibleDocFragments)
 			module.MinVersion = r.MinVersion()
-			infoModule := ansible.NewInfoFromResource(r, ansibleAuthors, ansibleInfoDocFragments)
+			infoModule := ansible.NewInfoFromResource(r, overlayDir, ansibleAuthors, ansibleInfoDocFragments)
 			infoModule.MinVersion = r.MinVersion()
 
 			// Resolve per-resource skip flags.
