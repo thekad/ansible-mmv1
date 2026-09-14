@@ -12,6 +12,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"slices"
 	"strings"
 	"sync"
@@ -35,6 +36,39 @@ const MMV1_REPO string = "https://github.com/GoogleCloudPlatform/magic-modules"
 var embeddedTemplates embed.FS
 
 const MIN_VERSION string = "ga"
+
+// buildVersion returns a version string derived from the Go module's embedded
+// VCS metadata (commit hash and whether the working tree was dirty at build
+// time), e.g. "eef32276" or "eef32276-dirty". Falls back to "unknown" if the
+// binary was built without VCS info (e.g. `go build -buildvcs=false`).
+func buildVersion() string {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return "unknown"
+	}
+
+	var revision string
+	var dirty bool
+	for _, setting := range info.Settings {
+		switch setting.Key {
+		case "vcs.revision":
+			revision = setting.Value
+		case "vcs.modified":
+			dirty = setting.Value == "true"
+		}
+	}
+
+	if revision == "" {
+		return "unknown"
+	}
+	if len(revision) > 8 {
+		revision = revision[:8]
+	}
+	if dirty {
+		revision += "-dirty"
+	}
+	return revision
+}
 
 // configFileBaseName holds the base filename of the resolved config file (e.g.
 // "mmv1-config.yaml") and is set by initConfig(). It drives the output path
@@ -193,8 +227,9 @@ func mustBindPFlag(viperKey, flagName string) {
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "ansible-mmv1",
-	Short: "Generate Ansible modules from Magic Modules",
+	Use:     "ansible-mmv1",
+	Short:   "Generate Ansible modules from Magic Modules",
+	Version: buildVersion(),
 	Long: `ansible-mmv1 generates Ansible modules from a Magic Modules repository.
 It reads product and resource definitions and generates Python modules and integration tests.`,
 	PreRun: func(cmd *cobra.Command, args []string) {
