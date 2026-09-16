@@ -62,7 +62,7 @@ func (a *ansibleExampleRedirectFS) ReadFile(name string) ([]byte, error) {
 			return b, nil
 		}
 		if errors.Is(err, fs.ErrNotExist) {
-			log.Warn().Str("terraform_path", name).Str("ansible_path", alt).
+			log.Debug().Str("terraform_path", name).Str("ansible_path", alt).
 				Msg("sample template not found; using empty content")
 			return []byte{}, nil
 		}
