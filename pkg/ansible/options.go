@@ -443,7 +443,7 @@ func convertPropertiesToOptions(properties []*mmv1api.Type, parent *Option, virt
 					Type:        "String",
 					Required:    true,
 					ClientSide:  true,
-					Description: fmt.Sprintf("The identifier for this %s entry, used as the map key.", google.Camelize(property.Name, "upper")),
+					Description: fmt.Sprintf("The identifier for this %s entry, used as the map key.", google.Underscore(property.Name)),
 				}
 				combinedProperties := append([]*mmv1api.Type{keyProperty}, property.ValueType.Properties...)
 				subOpts := convertPropertiesToOptions(combinedProperties, option, false, extended)
