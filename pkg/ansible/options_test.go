@@ -222,6 +222,7 @@ func TestMapMmv1ToAnsible(t *testing.T) {
 		{"KeyValueEffectiveLabels", TypeDict},
 		{"KeyValueTerraformLabels", TypeDict},
 		{"Array", TypeList},
+		{"Map", TypeList},
 		{"Enum", TypeStr},
 		{"ResourceRef", TypeDict},
 		{"Fingerprint", TypeStr},
@@ -489,6 +490,39 @@ func TestOptionIsNestedList(t *testing.T) {
 	})
 }
 
+func TestOptionIsMapOfNestedObjects(t *testing.T) {
+	t.Run("returns true for Map with NestedObject value_type", func(t *testing.T) {
+		o := &Option{
+			Mmv1: &mmv1api.Type{
+				Type:      "Map",
+				ValueType: &mmv1api.Type{Type: "NestedObject"},
+			},
+		}
+		if !o.IsMapOfNestedObjects() {
+			t.Fatal("IsMapOfNestedObjects() = false, want true")
+		}
+	})
+
+	t.Run("returns false for Map with scalar value_type", func(t *testing.T) {
+		o := &Option{
+			Mmv1: &mmv1api.Type{
+				Type:      "Map",
+				ValueType: &mmv1api.Type{Type: "String"},
+			},
+		}
+		if o.IsMapOfNestedObjects() {
+			t.Fatal("IsMapOfNestedObjects() = true, want false for scalar value_type")
+		}
+	})
+
+	t.Run("returns false when not a Map", func(t *testing.T) {
+		o := &Option{Mmv1: &mmv1api.Type{Type: "NestedObject"}}
+		if o.IsMapOfNestedObjects() {
+			t.Fatal("IsMapOfNestedObjects() = true, want false for non-Map type")
+		}
+	})
+}
+
 func TestOptionClassName(t *testing.T) {
 	t.Run("root-level nested object returns camelized name", func(t *testing.T) {
 		o := &Option{
@@ -554,6 +588,26 @@ func TestOptionClassName(t *testing.T) {
 			t.Fatalf("ClassName() = %q, want %q", got, "Items")
 		}
 	})
+
+	t.Run("child map of nested objects singularizes name and prepends parent class name", func(t *testing.T) {
+		parent := &Option{
+			Name: "policy",
+			Mmv1: &mmv1api.Type{Type: "NestedObject"},
+		}
+		child := &Option{
+			Name:   "clusterAdmissionRules",
+			Parent: parent,
+			Type:   TypeList,
+			Mmv1: &mmv1api.Type{
+				Type:      "Map",
+				ValueType: &mmv1api.Type{Type: "NestedObject"},
+			},
+		}
+		got := child.ClassName()
+		if got != "PolicyClusterAdmissionRule" {
+			t.Fatalf("ClassName() = %q, want %q", got, "PolicyClusterAdmissionRule")
+		}
+	})
 }
 
 func TestOptionSuboptions(t *testing.T) {
@@ -610,4 +664,106 @@ func TestOptionSuboptions(t *testing.T) {
 			t.Fatal("ArgumentSuboptions() missing 'region'")
 		}
 	})
+}
+
+func TestConvertPropertiesToOptionsMapOfNestedObjects(t *testing.T) {
+	property := &mmv1api.Type{
+		Name:    "clusterAdmissionRules",
+		Type:    "Map",
+		KeyName: "cluster",
+		ValueType: &mmv1api.Type{
+			Type: "NestedObject",
+			Properties: []*mmv1api.Type{
+				{Name: "evaluationMode", Type: "Enum", Required: true},
+				{Name: "requireAttestationsBy", Type: "Array", ItemType: &mmv1api.Type{Type: "String"}},
+			},
+		},
+	}
+
+	options := convertPropertiesToOptions([]*mmv1api.Type{property}, nil, false, true)
+
+	opt, ok := options["cluster_admission_rules"]
+	if !ok {
+		t.Fatalf("expected option 'cluster_admission_rules', got keys: %v", options)
+	}
+
+	if opt.Type != TypeList {
+		t.Fatalf("Type = %q, want %q", opt.Type, TypeList)
+	}
+
+	if opt.Elements != TypeDict {
+		t.Fatalf("Elements = %q, want %q", opt.Elements, TypeDict)
+	}
+
+	if !opt.IsMapOfNestedObjects() {
+		t.Fatal("IsMapOfNestedObjects() = false, want true")
+	}
+
+	if !opt.IsNestedList() {
+		t.Fatal("IsNestedList() = false, want true for a Map of NestedObjects")
+	}
+
+	if len(opt.Suboptions) != 3 {
+		t.Fatalf("Suboptions len = %d, want 3 (injected key field + 2 from value_type.properties)", len(opt.Suboptions))
+	}
+
+	if _, ok := opt.Suboptions["evaluation_mode"]; !ok {
+		t.Fatal("Suboptions missing 'evaluation_mode' from value_type.properties")
+	}
+	if _, ok := opt.Suboptions["require_attestations_by"]; !ok {
+		t.Fatal("Suboptions missing 'require_attestations_by' from value_type.properties")
+	}
+
+	keyOpt, ok := opt.Suboptions["cluster"]
+	if !ok {
+		t.Fatal("Suboptions missing injected 'cluster' key field")
+	}
+	if !keyOpt.Required {
+		t.Fatal("injected key field Required = false, want true")
+	}
+	if !keyOpt.ClientSide {
+		t.Fatal("injected key field ClientSide = false, want true")
+	}
+	if keyOpt.Type != TypeStr {
+		t.Fatalf("injected key field Type = %q, want %q", keyOpt.Type, TypeStr)
+	}
+
+	if got := opt.MapKeySuboption(); got != keyOpt {
+		t.Fatalf("MapKeySuboption() = %v, want the injected 'cluster' suboption", got)
+	}
+
+	if opt.Dependency == nil {
+		t.Fatal("Dependency = nil, want populated from suboption constraints")
+	}
+}
+
+func TestConvertPropertiesToOptionsMapWithScalarValueType(t *testing.T) {
+	property := &mmv1api.Type{
+		Name:      "labels",
+		Type:      "Map",
+		ValueType: &mmv1api.Type{Type: "String"},
+	}
+
+	options := convertPropertiesToOptions([]*mmv1api.Type{property}, nil, false, true)
+
+	opt, ok := options["labels"]
+	if !ok {
+		t.Fatalf("expected option 'labels', got keys: %v", options)
+	}
+
+	if opt.Type != TypeList {
+		t.Fatalf("Type = %q, want %q", opt.Type, TypeList)
+	}
+
+	if opt.Elements != TypeStr {
+		t.Fatalf("Elements = %q, want %q", opt.Elements, TypeStr)
+	}
+
+	if opt.IsMapOfNestedObjects() {
+		t.Fatal("IsMapOfNestedObjects() = true, want false for scalar value_type")
+	}
+
+	if opt.Suboptions != nil {
+		t.Fatalf("Suboptions = %v, want nil for scalar value_type Map", opt.Suboptions)
+	}
 }

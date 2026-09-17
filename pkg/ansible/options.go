@@ -4,6 +4,7 @@
 package ansible
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
@@ -64,6 +65,8 @@ func MapMmv1ToAnsible(property *mmv1api.Type) Type {
 	case "KeyValueTerraformLabels":
 		return TypeDict
 	case "Array":
+		return TypeList
+	case "Map":
 		return TypeList
 	case "Enum":
 		return TypeStr
@@ -231,6 +234,29 @@ func (o *Option) IsNestedList() bool {
 	return o.IsList() && o.ElementsAre("NestedObject")
 }
 
+// IsMapOfNestedObjects returns true if this option is a Map whose values are
+// NestedObjects. Following the same convention as the upstream Terraform
+// provider, such a Map is represented in Ansible as a list of dicts (each
+// carrying an injected key field named after key_name) rather than as a
+// native dict, since Ansible's argument_spec has no way to validate a dict
+// keyed by arbitrary user-defined strings. IsNestedList() is also true for
+// these options; this predicate distinguishes them so the generated code can
+// convert between the API's dict wire format and the list-of-dicts the user
+// interacts with.
+func (o *Option) IsMapOfNestedObjects() bool {
+	return o.Mmv1.IsA("Map") && o.Mmv1.ValueType != nil && o.Mmv1.ValueType.IsA("NestedObject")
+}
+
+// MapKeySuboption returns the synthetic suboption representing this Map's
+// key_name (the field injected to carry each entry's map key), or nil if this
+// option is not a Map of NestedObjects.
+func (o *Option) MapKeySuboption() *Option {
+	if !o.IsMapOfNestedObjects() {
+		return nil
+	}
+	return o.Suboptions[google.Underscore(o.Mmv1.KeyName)]
+}
+
 func (o *Option) AnsibleName() string {
 	return google.Underscore(o.Name)
 }
@@ -251,6 +277,9 @@ func (o *Option) ClassName() string {
 }
 
 func (o *Option) ElementsAre(q string) bool {
+	if o.Mmv1.IsA("Map") {
+		return o.Mmv1.ValueType != nil && o.Mmv1.ValueType.IsA(q)
+	}
 	return o.Mmv1.ItemType.IsA(q)
 }
 
@@ -393,6 +422,37 @@ func convertPropertiesToOptions(properties []*mmv1api.Type, parent *Option, virt
 				MutuallyExclusive: translateMmv1Conflicts(subOpts),
 				RequiredTogether:  translateMmv1RequiredWith(subOpts),
 				RequiredOneOf:     translateMmv1AtLeastOneOf(subOpts),
+			}
+		}
+
+		// Handle Maps: following the upstream Terraform provider's convention,
+		// a Map is represented as a list of dicts rather than a native dict,
+		// since Ansible's argument_spec has no way to validate a dict keyed by
+		// arbitrary user-defined strings. Each list entry carries an injected
+		// key field (named after key_name) alongside value_type's own
+		// properties. The key field is marked ClientSide so it's excluded from
+		// the generated _request() payload (it isn't part of the API's value
+		// schema, only of the map's key) while still appearing in the
+		// argument_spec and DOCUMENTATION suboptions for validation purposes.
+		if property.Type == "Map" && property.ValueType != nil {
+			option.Elements = MapMmv1ToAnsible(property.ValueType)
+
+			if property.ValueType.Type == "NestedObject" && property.ValueType.Properties != nil {
+				keyProperty := &mmv1api.Type{
+					Name:        property.KeyName,
+					Type:        "String",
+					Required:    true,
+					ClientSide:  true,
+					Description: fmt.Sprintf("The identifier for this %s entry, used as the map key.", google.Camelize(property.Name, "upper")),
+				}
+				combinedProperties := append([]*mmv1api.Type{keyProperty}, property.ValueType.Properties...)
+				subOpts := convertPropertiesToOptions(combinedProperties, option, false, extended)
+				option.Suboptions = subOpts
+				option.Dependency = &Dependency{
+					MutuallyExclusive: translateMmv1Conflicts(subOpts),
+					RequiredTogether:  translateMmv1RequiredWith(subOpts),
+					RequiredOneOf:     translateMmv1AtLeastOneOf(subOpts),
+				}
 			}
 		}
 

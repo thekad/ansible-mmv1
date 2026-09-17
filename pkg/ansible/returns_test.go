@@ -51,3 +51,55 @@ func TestSafeReturnKey(t *testing.T) {
 		}
 	})
 }
+
+func TestMapMmv1TypeToReturnTypeMap(t *testing.T) {
+	got, err := mapMmv1TypeToReturnType(&mmv1api.Type{Type: "Map"})
+	if err != nil {
+		t.Fatalf("mapMmv1TypeToReturnType(Map) returned error: %v", err)
+	}
+	if got != ReturnTypeList {
+		t.Fatalf("mapMmv1TypeToReturnType(Map) = %q, want %q", got, ReturnTypeList)
+	}
+}
+
+func TestConvertPropertiesToReturnsMapOfNestedObjects(t *testing.T) {
+	property := &mmv1api.Type{
+		Name:    "clusterAdmissionRules",
+		Type:    "Map",
+		Output:  true,
+		KeyName: "cluster",
+		ValueType: &mmv1api.Type{
+			Type: "NestedObject",
+			Properties: []*mmv1api.Type{
+				{Name: "evaluationMode", Type: "Enum", Output: true},
+			},
+		},
+	}
+
+	returns := convertPropertiesToReturns([]*mmv1api.Type{property}, true)
+
+	attr, ok := returns["clusterAdmissionRules"]
+	if !ok {
+		t.Fatalf("expected return 'clusterAdmissionRules', got keys: %v", returns)
+	}
+
+	if attr.Type != ReturnTypeList {
+		t.Fatalf("Type = %q, want %q", attr.Type, ReturnTypeList)
+	}
+
+	if attr.Elements != ReturnTypeDict {
+		t.Fatalf("Elements = %q, want %q", attr.Elements, ReturnTypeDict)
+	}
+
+	if attr.Contains == nil {
+		t.Fatal("Contains = nil, want populated from value_type.properties")
+	}
+
+	if _, ok := attr.Contains["evaluationMode"]; !ok {
+		t.Fatal("Contains missing 'evaluationMode' from value_type.properties")
+	}
+
+	if _, ok := attr.Contains["cluster"]; !ok {
+		t.Fatal("Contains missing injected 'cluster' key field")
+	}
+}

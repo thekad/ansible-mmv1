@@ -93,6 +93,8 @@ func mapMmv1TypeToReturnType(property *mmv1api.Type) (ReturnType, error) {
 		return ReturnTypeDict, nil
 	case "Array":
 		return ReturnTypeList, nil
+	case "Map":
+		return ReturnTypeList, nil
 	case "Enum":
 		return ReturnTypeStr, nil
 	case "Fingerprint":
@@ -218,6 +220,30 @@ func convertPropertiesToReturns(properties []*mmv1api.Type, extended bool) map[s
 		// Handle nested dictionary objects (direct contains)
 		if (returnAttr.Type == ReturnTypeDict || returnAttr.Type == ReturnTypeComplex) && property.Properties != nil {
 			returnAttr.Contains = convertPropertiesToReturns(property.Properties, extended)
+		}
+
+		// Handle Maps: mirrors the upstream Terraform provider's convention of
+		// representing a Map as a list of dicts (see convertPropertiesToOptions
+		// for the full rationale). Each documented list item includes an
+		// injected key field named after key_name, alongside value_type's own
+		// properties.
+		if property.Type == "Map" && property.ValueType != nil {
+			elementType, err := mapMmv1TypeToReturnType(property.ValueType)
+			if err != nil {
+				log.Warn().Err(err).Msgf("error mapping return element type for property %s", property.Name)
+			}
+			returnAttr.Elements = elementType
+
+			if property.ValueType.Type == "NestedObject" && property.ValueType.Properties != nil {
+				keyProperty := &mmv1api.Type{
+					Name:        property.KeyName,
+					Type:        "String",
+					Output:      true,
+					Description: fmt.Sprintf("The identifier for this %s entry, used as the map key.", google.Camelize(property.Name, "upper")),
+				}
+				combinedProperties := append([]*mmv1api.Type{keyProperty}, property.ValueType.Properties...)
+				returnAttr.Contains = convertPropertiesToReturns(combinedProperties, extended)
+			}
 		}
 
 		returns[returnName] = returnAttr
